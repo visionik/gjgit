@@ -1,0 +1,48 @@
+{
+  "vBRIEFInfo": {
+    "version": "0.6",
+    "author": "agent:deft-directive-setup",
+    "description": "Proxy mode: ghproxy + gitea-mirror + Caddyfile proxy routing",
+    "created": "2026-04-26T20:38:00Z"
+  },
+  "plan": {
+    "title": "Proxy mode stack",
+    "status": "proposed",
+    "narrative": {
+      "Overview": "Add the proxy profile services (ghproxy via wjqserver/ghproxy, gitea-mirror) to docker-compose.yml and extend Caddyfile to route git/raw/release traffic to ghproxy. After this scope, docker compose --profile proxy up -d produces a fully working proxy+mirror stack. Depends on: bootstrap-entrypoint.",
+      "Traces": "FR-1 (proxy mode), FR-2 (proxy Docker Compose profile), FR-7 (gitea-mirror sync), FR-8 (ghproxy cache/rate-limit/metrics), FR-9 (Caddyfile proxy routing), FR-10 (.env.example proxy vars), NFR-2 (China-optimised cache sizing)"
+    },
+    "items": [
+      {
+        "id": "proxy-1",
+        "title": "docker-compose.yml — ghproxy service (proxy profile)",
+        "description": "Add ghproxy service: image wjqserver/ghproxy, profiles: [proxy], restart: unless-stopped, network gjgit. Mount configs/ghproxy/ for config file. Expose :9090 for Prometheus (internal only). Configure via environment or config file: cache path + size from GH_PROXY_CACHE_SIZE, rate limit from GH_PROXY_RATE_LIMIT_RPS. Add ghproxy_cache named volume."
+      },
+      {
+        "id": "proxy-2",
+        "title": "configs/ghproxy/ — ghproxy config",
+        "description": "Create configs/ghproxy/config.yaml (or equivalent config format for wjqserver/ghproxy). Enable hybrid cache, set disk path to /var/cache/ghproxy (volume-mounted), enable Prometheus on :9090, configure rate limiting. Add configs/ghproxy/config.yaml.example as the committed template. Research wjqserver/ghproxy config schema before writing."
+      },
+      {
+        "id": "proxy-3",
+        "title": "docker-compose.yml — gitea-mirror service (proxy profile)",
+        "description": "Add gitea-mirror service: image ghcr.io/raylabshq/gitea-mirror:latest, profiles: [proxy], env_file: .env, mounts shared_token volume at /shared, depends_on bootstrap (service_completed_successfully), restart: unless-stopped, network gjgit. Service reads FORGEJO_TOKEN from /shared/forgejo-token at startup — document how gitea-mirror consumes the token file."
+      },
+      {
+        "id": "proxy-4",
+        "title": ".env.example — proxy mode section",
+        "description": "Add PROXY MODE section to .env.example: GITHUB_REPO, GITHUB_TOKEN, MIRROR_INTERVAL (default 15m), MIRROR_ISSUES, MIRROR_RELEASES, MIRROR_LFS. Add HIGH-VOLUME TWEAKS section: GH_PROXY_CACHE_SIZE (default 20G), GH_PROXY_RATE_LIMIT_RPS (default 200). All with inline comments."
+      },
+      {
+        "id": "proxy-5",
+        "title": "Caddyfile — proxy mode routing",
+        "description": "Extend Caddyfile with a conditional block (using Caddy's named matchers) that routes *.git paths, /*/archive/*, /*/releases/*, raw.githubusercontent.com proxied paths to ghproxy:8080. Web UI paths (/, /user*, /explore*, /issues*, /notifications*) continue routing to forgejo:3000. Add clear comments delineating standalone vs proxy routing sections."
+      },
+      {
+        "id": "proxy-6",
+        "title": "Caddy service — add ghproxy depends_on (proxy profile)",
+        "description": "Update caddy service in docker-compose.yml to conditionally depend_on ghproxy when proxy profile is active. Since Docker Compose profiles don't support conditional depends_on natively, document the workaround (start order via healthcheck or accept that caddy starts before ghproxy is ready with retry logic)."
+      }
+    ]
+  }
+}

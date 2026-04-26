@@ -1,0 +1,43 @@
+{
+  "vBRIEFInfo": {
+    "version": "0.6",
+    "author": "agent:deft-directive-setup",
+    "description": "Automated Forgejo admin bootstrap and API token generation",
+    "created": "2026-04-26T20:38:00Z"
+  },
+  "plan": {
+    "title": "Bootstrap entrypoint",
+    "status": "proposed",
+    "narrative": {
+      "Overview": "Implement the automated first-run bootstrap: a shell script that creates the Forgejo admin user from env vars and generates an API token written to a shared Docker volume. Eliminates all manual post-deploy web UI steps. The script is idempotent — safe to run on every container start. Depends on: standalone-mode-stack.",
+      "Traces": "FR-5 (admin user creation via CLI), FR-6 (API token written to shared volume), NFR-4 (no secrets in code)"
+    },
+    "items": [
+      {
+        "id": "bootstrap-1",
+        "title": "scripts/bootstrap.sh — admin user creation",
+        "description": "Shell script that: (1) waits for Forgejo to be healthy (polls /api/v1/version with exponential backoff, max 60s); (2) checks if admin user already exists via Forgejo API — if yes, skips creation (idempotent); (3) runs: forgejo admin user create --username $GITEA_ADMIN_USERNAME --password $GITEA_ADMIN_PASSWORD --email $GITEA_ADMIN_EMAIL --admin inside the forgejo container. Must handle the case where Forgejo CLI is not on PATH by using docker exec or running inside the forgejo service."
+      },
+      {
+        "id": "bootstrap-2",
+        "title": "scripts/bootstrap.sh — API token generation",
+        "description": "After admin creation, calls the Forgejo token API (POST /api/v1/users/{admin}/tokens) to create a token named gjgit-mirror. Writes the raw token string to /shared/forgejo-token (the shared_token volume mount). If /shared/forgejo-token already exists and is non-empty, skips generation (idempotent). Token is never printed to stdout or logs."
+      },
+      {
+        "id": "bootstrap-3",
+        "title": "docker-compose.yml — bootstrap service and depends_on",
+        "description": "Add a bootstrap service to docker-compose.yml: uses the forgejo image, command: /scripts/bootstrap.sh, mounts scripts/ and shared_token volume, restart: no (one-shot). Update forgejo service to have a healthcheck on /api/v1/version. Update gitea-mirror (in proxy profile) to depend_on: bootstrap with condition: service_completed_successfully."
+      },
+      {
+        "id": "bootstrap-4",
+        "title": ".env.example — bootstrap vars",
+        "description": "Add GITEA_ADMIN_USERNAME, GITEA_ADMIN_PASSWORD, GITEA_ADMIN_EMAIL, GITEA_URL (internal, e.g. http://forgejo:3000) to .env.example with inline comments. GITEA_ADMIN_PASSWORD must have a comment warning to change before deploying."
+      },
+      {
+        "id": "bootstrap-5",
+        "title": "Validate idempotency",
+        "description": "Manual test and documentation: running docker compose restart bootstrap a second time must not create a duplicate user or token. Document the re-run behaviour in a comment in bootstrap.sh."
+      }
+    ]
+  }
+}

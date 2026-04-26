@@ -1,0 +1,22 @@
+{
+  "vBRIEFInfo": {
+    "version": "0.6",
+    "author": "agent:deft-directive-setup",
+    "description": "Project identity gestalt",
+    "created": "2026-04-26T20:18:00Z"
+  },
+  "plan": {
+    "title": "gjgit",
+    "status": "running",
+    "narratives": {
+      "Overview": "Turnkey GitHub mirror and Forgejo self-hosting stack. Proxy/Mirror mode mirrors a GitHub repo (or org) with fast git clone/push/pull, gh CLI compatibility, and a full Forgejo web UI. Standalone mode runs a fully functional self-hosted Forgejo instance with no GitHub dependency. One-command deploy via docker compose up -d. Optimised for high-volume traffic and China-first latency (HK/LA CN2 GIA VPS).",
+"TechStack": "Infrastructure / DevOps (Docker Compose stack) using YAML + Shell — Forgejo 14 (codeberg.org/forgejo/forgejo:14) + gitea-mirror (ghcr.io/raylabshq/gitea-mirror:latest) + ghproxy (wjqserver/ghproxy, pre-built Docker image) + Caddy v2. Cross-platform deployment (Linux / macOS / Windows). Optional: Prometheus metrics.",
+      "Strategy": "Use interview for this project",
+      "Quality": "Run task check before every commit. Achieve >= 85% coverage overall + per-module. Store secrets in secrets/ dir.",
+      "ProjectRules": "No project-specific rules defined.",
+      "Branching": "Allow direct commits to master: true",
+      "DeftVersion": "0.20.0"
+    },
+    "items": []
+  }
+}

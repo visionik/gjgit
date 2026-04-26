@@ -1,0 +1,43 @@
+{
+  "vBRIEFInfo": {
+    "version": "0.6",
+    "author": "agent:deft-directive-setup",
+    "description": "bats-core unit tests + docker compose integration tests",
+    "created": "2026-04-26T20:38:00Z"
+  },
+  "plan": {
+    "title": "Test suite",
+    "status": "proposed",
+    "narrative": {
+      "Overview": "Implement the test suite: bats-core unit tests for shell scripts (bootstrap.sh and any utility scripts), docker compose integration tests asserting service health after stack start. Wires into Taskfile task check and CI. Depends on: bootstrap-entrypoint (for scripts to test), proxy-mode-stack (for integration targets).",
+      "Traces": "FR-11 (bats-core unit tests + integration tests), NFR-3 (>=85% coverage for shell scripts)"
+    },
+    "items": [
+      {
+        "id": "test-1",
+        "title": "Install and configure bats-core",
+        "description": "Add bats-core as a git submodule or document installation in README. Create tests/unit/ directory. Add a Taskfile task (task test:unit) that runs bats tests/unit/. Ensure bats is available in CI (GitHub Actions step or Dockerfile for test runner)."
+      },
+      {
+        "id": "test-2",
+        "title": "bats unit tests for bootstrap.sh",
+        "description": "Write tests/unit/bootstrap.bats covering: (1) wait-for-forgejo retries on non-200 response and succeeds when 200 returned; (2) admin creation is skipped when user already exists (mock Forgejo API); (3) token file is written correctly to /shared/forgejo-token; (4) script exits non-zero when GITEA_ADMIN_PASSWORD is empty. Use bats mocking patterns (stub curl/wget). Achieve >=85% line coverage of bootstrap.sh."
+      },
+      {
+        "id": "test-3",
+        "title": "Integration test: standalone mode",
+        "description": "Write tests/integration/standalone.sh (or .bats): starts docker compose up -d with a test .env (DOMAIN=localhost, Caddy internal TLS), waits up to 60s for Forgejo /api/v1/version to return HTTP 200, asserts the response contains a version field, then runs docker compose down. Test must be runnable via task test:integration. Clean up containers and volumes on exit (use trap for cleanup)."
+      },
+      {
+        "id": "test-4",
+        "title": "Integration test: proxy mode",
+        "description": "Write tests/integration/proxy.sh: starts docker compose --profile proxy up -d, waits for Forgejo health + ghproxy :8080/healthz (or equivalent) to return 200, asserts ghproxy :9090/metrics is reachable, then tears down. Must not require real GitHub credentials — use GITHUB_TOKEN=fake and assert gitea-mirror starts without crashing (it may fail to mirror but must not exit 1 on startup)."
+      },
+      {
+        "id": "test-5",
+        "title": "Taskfile test tasks and CI wiring",
+        "description": "Add to Taskfile: task test:unit (bats unit tests), task test:integration (standalone + proxy integration), task test (runs unit then integration), task check (fmt + lint + test). Add a GitHub Actions workflow file .github/workflows/ci.yml: runs on push/PR, installs bats-core and Docker Compose, runs task check."
+      }
+    ]
+  }
+}

@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: ["master", "main"]
+  pull_request:
+    branches: ["master", "main"]
+
+jobs:
+  lint-and-unit:
+    name: Lint + Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: sudo apt-get install -y shellcheck
+
+      - name: Install bats-core
+        run: |
+          git clone --depth 1 https://github.com/bats-core/bats-core.git /tmp/bats-core
+          sudo /tmp/bats-core/install.sh /usr/local
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: "3.x"
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Lint shell scripts
+        run: task lint
+
+      - name: Run unit tests
+        run: task test:unit
+
+  validate-compose:
+    name: Validate docker-compose.yml
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Copy env example
+        run: cp .env.example .env
+
+      - name: Validate compose config
+        run: docker compose config --quiet
+
+      - name: Validate compose config (proxy profile)
+        run: docker compose --profile proxy config --quiet
+
+  integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    # Integration tests spin up real Docker containers — only run on push to master
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: "3.x"
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run standalone integration test
+        run: bash tests/integration/standalone.sh
+
+      - name: Run proxy integration test
+        run: bash tests/integration/proxy.sh

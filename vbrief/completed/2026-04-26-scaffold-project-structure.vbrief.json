@@ -1,0 +1,48 @@
+{
+  "vBRIEFInfo": {
+    "version": "0.6",
+    "author": "agent:deft-directive-setup",
+    "description": "Scaffold the gjgit project skeleton",
+    "created": "2026-04-26T20:38:00Z"
+  },
+  "plan": {
+    "title": "Scaffold project structure",
+    "status": "running",
+    "narrative": {
+      "Overview": "Create the foundational repo structure: Taskfile, .gitignore, CHANGELOG.md, directory layout, and top-level config stubs. No service implementation — this scope establishes the skeleton every subsequent scope builds on.",
+      "Traces": "FR-10 (.env.example stub), NFR-4 (.gitignore for secrets + .env), NFR-5 (.example file convention established)"
+    },
+    "items": [
+      {
+        "id": "scaffold-1",
+        "title": "Create directory layout",
+        "description": "Create top-level directories: configs/, data/, docs/, scripts/, tests/. Add .gitkeep where needed so dirs are tracked. data/ must be gitignored."
+      },
+      {
+        "id": "scaffold-2",
+        "title": "Taskfile.yml with core tasks",
+        "description": "Add Taskfile.yml with tasks: default (task --list), up (docker compose up -d), up:proxy (docker compose --profile proxy up -d), down, logs, check (lint + test), test, test:integration, fmt. Include desc for every task."
+      },
+      {
+        "id": "scaffold-3",
+        "title": ".gitignore",
+        "description": "Gitignore: data/, .env, secrets/*.env (not *.example), *.premigrate.*, caddy_data/, forgejo_data/ bind-mount dirs if used."
+      },
+      {
+        "id": "scaffold-4",
+        "title": "CHANGELOG.md",
+        "description": "Create CHANGELOG.md following Keep a Changelog format with an [Unreleased] section and a 0.1.0 placeholder."
+      },
+      {
+        "id": "scaffold-5",
+        "title": ".env.example stub",
+        "description": "Create .env.example with section headers (GLOBAL, PROXY MODE, HIGH-VOLUME TWEAKS) and placeholder values for all variables defined in FR-10. Every variable must have an inline comment. Actual values must not be filled in."
+      },
+      {
+        "id": "scaffold-6",
+        "title": "secrets/ directory with .example templates",
+        "description": "Create secrets/ dir with .gitignore (ignore everything except *.example) and any .example template files needed (e.g. github-token.example)."
+      }
+    ]
+  }
+}

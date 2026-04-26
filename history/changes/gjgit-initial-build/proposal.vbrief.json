@@ -1,0 +1,17 @@
+{
+  "vBRIEFInfo": {
+    "version": "0.6",
+    "author": "agent:deft-directive-build",
+    "description": "Change proposal: gjgit initial build",
+    "created": "2026-04-26T20:51:00Z"
+  },
+  "plan": {
+    "title": "gjgit-initial-build",
+    "status": "running",
+    "narratives": {
+      "Overview": "Implement all 6 scope vBRIEFs for gjgit v0.1.0 in dependency order: scaffold-project-structure, standalone-mode-stack, bootstrap-entrypoint, proxy-mode-stack, test-suite, documentation. Confirmed by user 2026-04-26T20:51:00Z.",
+      "Scopes": "scaffold-project-structure, standalone-mode-stack, bootstrap-entrypoint, proxy-mode-stack, test-suite, documentation"
+    },
+    "items": []
+  }
+}

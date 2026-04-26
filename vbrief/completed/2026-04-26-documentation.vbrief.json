@@ -1,0 +1,43 @@
+{
+  "vBRIEFInfo": {
+    "version": "0.6",
+    "author": "agent:deft-directive-setup",
+    "description": "README, deployment guide, and supplementary docs",
+    "created": "2026-04-26T20:38:00Z"
+  },
+  "plan": {
+    "title": "Documentation",
+    "status": "proposed",
+    "narrative": {
+      "Overview": "Write the user-facing documentation: README.md (5-minute deploy guide, quickstart, mode selection), and supplementary docs for high-volume setups, China VPS hosting, and scaling. Documentation is the last scope — written after all services are implemented so instructions are accurate. Depends on: proxy-mode-stack, test-suite.",
+      "Traces": "NFR-1 (<5 min deploy — README is the guide), NFR-2 (China/high-volume — documented in docs/)"
+    },
+    "items": [
+      {
+        "id": "docs-1",
+        "title": "README.md — 5-minute deploy guide",
+        "description": "Write README.md covering: project description + badges (CI, license), prerequisites (Docker + Docker Compose), quickstart (4 steps: clone, cp .env.example .env + edit, docker compose up, point DNS), mode selection table (standalone vs proxy, what each starts), first-run behaviour (admin auto-created, token auto-generated), SSH access instructions, and a Troubleshooting section (common errors: Let's Encrypt rate limits, port 80 blocked, Forgejo not starting)."
+      },
+      {
+        "id": "docs-2",
+        "title": "docs/high-volume.md",
+        "description": "Document high-volume configuration: recommended GH_PROXY_CACHE_SIZE values by disk size, tuning GH_PROXY_RATE_LIMIT_RPS, reading Prometheus metrics at :9090/metrics, connecting Prometheus + Grafana, and signs that ghproxy is the bottleneck vs Forgejo vs network."
+      },
+      {
+        "id": "docs-3",
+        "title": "docs/china-hosting.md",
+        "description": "Document China-first deployment: recommended VPS providers (DMIT HK/LA CN2 GIA, BandwagonHost LA CN2 GIA), recommended specs (1Gbps+, 8+ cores, 16GB RAM, NVMe), network topology explanation (CN2 GIA vs BGP), DNS setup for low-latency resolution, and verifying latency from mainland China."
+      },
+      {
+        "id": "docs-4",
+        "title": "docs/scaling.md",
+        "description": "Document scaling beyond a single VPS: running ghproxy on a separate node with Caddy load balancing, adding a read replica Forgejo, backup strategy (forgejo_data volume snapshot), and upgrade procedure (pull new images, docker compose up -d, verify health)."
+      },
+      {
+        "id": "docs-5",
+        "title": "License file",
+        "description": "Add LICENSE file. Choose an appropriate open-source license (MIT recommended for maximum adoption as per project goal of being a reusable open-source project). Confirm choice with project owner before committing."
+      }
+    ]
+  }
+}

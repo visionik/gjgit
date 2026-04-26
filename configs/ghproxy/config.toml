@@ -1,0 +1,84 @@
+# gjgit — ghproxy configuration (wjqserver/ghproxy)
+# Config format: TOML
+# Container reads this from /data/ghproxy/config/config.toml
+#
+# NOTE: wjqserver/ghproxy does not expose Prometheus metrics. It provides
+# rate limiting, bandwidth limiting, and fast proxy routing. For metrics,
+# use docker stats or a sidecar exporter.
+#
+# Full config reference: https://wjqserver-docs.pages.dev/docs/ghproxy/
+
+[server]
+host       = "0.0.0.0"
+port       = 8080
+sizeLimit  = 2048   # Max proxied file size in MB (2GB — covers large release assets)
+memLimit   = 512    # Soft memory cap in MB (0 = unlimited)
+cors       = "*"
+debug      = false
+
+[httpc]
+mode                = "auto"
+maxIdleConns        = 200
+maxIdleConnsPerHost = 100
+maxConnsPerHost     = 0
+
+[gitclone]
+# bypass: proxy git operations directly to GitHub (no local cache).
+# Use "cache" + Smart-Git sidecar for full git clone caching (optional, not included in gjgit v1).
+mode         = "bypass"
+ForceH2C     = true
+
+[shell]
+editor     = true    # Enable shell script acceleration (rewrites script URLs through this proxy)
+rewriteAPI = false
+
+[pages]
+mode      = "internal"
+theme     = "hub"
+staticDir = "/data/www"
+
+[log]
+logFilePath = "/data/ghproxy/log/ghproxy.log"
+maxLogSize  = 10   # MB before rotation
+level       = "info"
+
+[auth]
+enabled      = false   # Set to true + configure key/token to restrict proxy access
+method       = "parameters"
+key          = ""
+token        = "token"
+passThrough  = false
+
+[blacklist]
+enabled       = false
+blacklistFile = "/data/ghproxy/config/blacklist.json"
+
+[whitelist]
+enabled       = false
+whitelistFile = "/data/ghproxy/config/whitelist.json"
+
+[rateLimit]
+# Requests per minute per IP. Increase for high-volume deployments.
+# Tune via GH_PROXY_RATE_LIMIT_RPM in .env (reflected here as a manual edit).
+enabled       = true
+ratePerMinute = 600    # ~10 rps — reasonable for a shared proxy
+burst         = 60
+
+  [rateLimit.bandwidthLimit]
+  enabled     = false   # Enable to cap total/per-client bandwidth
+  totalLimit  = "1gbps"
+  totalBurst  = "1gbps"
+  singleLimit = "100mbps"
+  singleBurst = "100mbps"
+
+[outbound]
+# Route ghproxy's outbound requests through a SOCKS5/HTTP proxy.
+# Useful if the VPS needs a relay to reach GitHub reliably.
+enabled = false
+url     = "socks5://127.0.0.1:1080"
+
+[docker]
+# Docker/GHCR registry proxy — not needed for gjgit's primary use case.
+enabled = false
+target  = "ghcr"
+auth    = false
