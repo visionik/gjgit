@@ -30,36 +30,49 @@ exit 0
 EOF
     chmod +x "${TEST_DIR}/stubs/forgejo"
 
-    # Create stub `curl` that can be configured per-test
-    export CURL_STUB_STATUS="${CURL_STUB_STATUS:-200}"
-    export CURL_STUB_BODY="${CURL_STUB_BODY:-{\"sha1\":\"fake-token-value\"}}"
+    # Create a URL-aware curl stub.
+    # Control via env vars:
+    #   CURL_STUB_HEALTH_OK=1   (default) — /api/v1/version returns 200; set 0 to simulate down
+    #   CURL_STUB_USER_EXISTS=0 (default) — /api/v1/user returns 401; set 1 for 200
+    #   CURL_STUB_TOKEN_BODY    (default: '{"sha1":"fake-token-value"}') — token create response
     cat > "${TEST_DIR}/stubs/curl" <<'CURLEOF'
 #!/bin/sh
-# Minimal curl stub
+HAS_F=0; METHOD="GET"
 while [ $# -gt 0 ]; do
     case "$1" in
         -o) shift; OUTPUT_FILE="$1" ;;
         -w) shift; FORMAT="$1" ;;
-        -sf|-s|-f) ;;
-        -X) shift ;;  # method
-        -H) shift ;;  # header
-        -u) shift ;;  # user
-        -d) shift ;;  # data
+        -sf|-f) HAS_F=1 ;;
+        -s) ;;
+        -X) shift; METHOD="$1" ;;
+        -H) shift ;; -u) shift ;; -d) shift ;;
         *) URL="$1" ;;
-    esac
-    shift
+    esac; shift
 done
-if [ -n "$OUTPUT_FILE" ] && [ "$OUTPUT_FILE" != "/dev/null" ]; then
-    printf '%s' "${CURL_STUB_BODY}" > "$OUTPUT_FILE"
-fi
-if [ -n "$FORMAT" ] && [ "$FORMAT" = "%{http_code}" ]; then
-    printf '%s' "${CURL_STUB_STATUS}"
-else
-    printf '%s' "${CURL_STUB_BODY}"
-fi
+STATUS=200; BODY=""
+case "${URL:-}" in
+    */api/v1/version*)
+        if [ "${CURL_STUB_HEALTH_OK:-1}" = "0" ]; then STATUS=503; else STATUS=200; fi
+        BODY='{"version":"test"}' ;;
+    */api/v1/users/*/tokens*)
+        if [ "$METHOD" = "DELETE" ]; then STATUS=204
+        else STATUS=200; BODY="${CURL_STUB_TOKEN_BODY:-{\"sha1\":\"fake-token-value\"}}"; fi ;;
+    */api/v1/user*)
+        if [ "${CURL_STUB_USER_EXISTS:-0}" = "1" ]; then STATUS=200; BODY='{"login":"ok"}'
+        else STATUS=401; BODY='{"message":"unauthorized"}'; fi ;;
+    *) STATUS="${CURL_STUB_STATUS:-200}"; BODY="${CURL_STUB_BODY:-}" ;;
+esac
+[ -n "$OUTPUT_FILE" ] && [ "$OUTPUT_FILE" != "/dev/null" ] && printf '%s' "$BODY" > "$OUTPUT_FILE"
+if [ -n "$FORMAT" ] && [ "$FORMAT" = "%{http_code}" ]; then printf '%s' "$STATUS"
+else printf '%s' "$BODY"; fi
+[ "$HAS_F" = "1" ] && [ "$STATUS" -ge 400 ] 2>/dev/null && exit 22
 exit 0
 CURLEOF
     chmod +x "${TEST_DIR}/stubs/curl"
+
+    # No-op sleep stub — eliminates wait time in unit tests
+    printf '#!/bin/sh\nexit 0\n' > "${TEST_DIR}/stubs/sleep"
+    chmod +x "${TEST_DIR}/stubs/sleep"
 
     SCRIPT="${BATS_TEST_DIRNAME}/../../scripts/bootstrap.sh"
 }
@@ -92,9 +105,8 @@ teardown() {
 # ── Test: wait loop gives up after MAX_ATTEMPTS ───────────────────────────────
 
 @test "exits non-zero when Forgejo never becomes healthy" {
-    export CURL_STUB_STATUS="503"
-    export CURL_STUB_BODY=""
-    # Override MAX_ATTEMPTS inline to keep test fast
+    export CURL_STUB_HEALTH_OK=0   # health check returns 503
+    # Override MAX_ATTEMPTS to keep test fast (2 attempts)
     run sh -c "MAX_ATTEMPTS=2 sh '${SCRIPT}'"
     [ "$status" -ne 0 ]
     [[ "$output" == *"Forgejo did not become healthy"* ]]
@@ -103,8 +115,8 @@ teardown() {
 # ── Test: skips admin creation when user already exists ──────────────────────
 
 @test "skips admin user creation when API returns 200 for existing user" {
-    export CURL_STUB_STATUS="200"
-    export CURL_STUB_BODY='{"sha1":"some-token"}'
+    export CURL_STUB_USER_EXISTS=1   # user check returns 200
+    export CURL_STUB_TOKEN_BODY='{"sha1":"some-token"}'
     TOKEN_FILE="${SHARED_DIR}/forgejo-token"
     # Patch TOKEN_FILE by overriding via env (sed the path)
     PATCHED_SCRIPT="${TEST_DIR}/bootstrap-patched.sh"
@@ -124,8 +136,8 @@ teardown() {
 # ── Test: token file is written correctly ─────────────────────────────────────
 
 @test "token file is created with the token value" {
-    export CURL_STUB_STATUS="401"  # First call (user check) — user does not exist
-    export CURL_STUB_BODY='{"sha1":"my-secret-token"}'
+    export CURL_STUB_USER_EXISTS=0   # user does not exist — triggers admin creation
+    export CURL_STUB_TOKEN_BODY='{"sha1":"my-secret-token"}'
     TOKEN_FILE="${SHARED_DIR}/forgejo-token"
     PATCHED_SCRIPT="${TEST_DIR}/bootstrap-patched.sh"
     sed "s|/shared/forgejo-token|${TOKEN_FILE}|g" "${SCRIPT}" > "${PATCHED_SCRIPT}"
@@ -143,8 +155,7 @@ teardown() {
 @test "skips token generation if token file already non-empty" {
     TOKEN_FILE="${SHARED_DIR}/forgejo-token"
     printf 'existing-token' > "${TOKEN_FILE}"
-    export CURL_STUB_STATUS="200"
-    export CURL_STUB_BODY='{}'
+    export CURL_STUB_USER_EXISTS=1   # user exists, health passes
     PATCHED_SCRIPT="${TEST_DIR}/bootstrap-patched.sh"
     sed "s|/shared/forgejo-token|${TOKEN_FILE}|g" "${SCRIPT}" > "${PATCHED_SCRIPT}"
     chmod +x "${PATCHED_SCRIPT}"

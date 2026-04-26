@@ -28,7 +28,7 @@ TOKEN_NAME="gjgit-mirror"
 # ── Step 1: Wait for Forgejo to be healthy ───────────────────────────────────
 echo "[bootstrap] Waiting for Forgejo at ${FORGEJO_URL}..."
 
-MAX_ATTEMPTS=30
+MAX_ATTEMPTS="${MAX_ATTEMPTS:-30}"
 attempt=1
 while [ "$attempt" -le "$MAX_ATTEMPTS" ]; do
     if curl -sf "${FORGEJO_URL}/api/v1/version" > /dev/null 2>&1; then
