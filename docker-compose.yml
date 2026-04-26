@@ -1,0 +1,115 @@
+networks:
+  gjgit:
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:
+  forgejo_data:
+  shared_token:    # Written by bootstrap, read by gitea-mirror
+  ghproxy_cache:
+
+services:
+
+  # ── Reverse proxy + TLS ────────────────────────────────────────────────────
+  caddy:
+    image: caddy:2-alpine
+    container_name: gjgit-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"   # HTTP/3 (QUIC)
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    env_file: .env
+    networks:
+      - gjgit
+    depends_on:
+      forgejo:
+        condition: service_healthy
+
+  # ── Git hosting ────────────────────────────────────────────────────────────
+  forgejo:
+    image: codeberg.org/forgejo/forgejo:14
+    container_name: gjgit-forgejo
+    restart: unless-stopped
+    environment:
+      - USER_UID=${USER_UID:-1000}
+      - USER_GID=${USER_GID:-1000}
+    volumes:
+      - forgejo_data:/data
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "${FORGEJO_SSH_PORT:-2222}:22"
+    networks:
+      - gjgit
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:3000/api/v1/version"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  # ── First-run bootstrap (one-shot) ────────────────────────────────────────
+  # Creates Forgejo admin user + generates API token into shared_token volume.
+  # Runs to completion; gitea-mirror waits on it (proxy profile only).
+  bootstrap:
+    image: codeberg.org/forgejo/forgejo:14
+    container_name: gjgit-bootstrap
+    restart: "no"
+    env_file: .env
+    volumes:
+      - ./scripts:/scripts:ro
+      - shared_token:/shared
+    networks:
+      - gjgit
+    entrypoint: ["/bin/sh", "/scripts/bootstrap.sh"]
+    depends_on:
+      forgejo:
+        condition: service_healthy
+
+  # ── GitHub mirror (proxy profile only) ───────────────────────────────────
+  gitea-mirror:
+    image: ghcr.io/raylabshq/gitea-mirror:latest
+    container_name: gjgit-gitea-mirror
+    restart: unless-stopped
+    profiles: ["proxy"]
+    env_file: .env
+    environment:
+      # gitea-mirror reads the token from the shared volume at startup
+      - GITEA_TOKEN_FILE=/shared/forgejo-token
+      - GITEA_URL=${GITEA_URL:-http://forgejo:3000}
+      - GITHUB_REPO=${GITHUB_REPO}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - MIRROR_INTERVAL=${MIRROR_INTERVAL:-15m}
+      - MIRROR_ISSUES=${MIRROR_ISSUES:-true}
+      - MIRROR_RELEASES=${MIRROR_RELEASES:-true}
+      - MIRROR_LFS=${MIRROR_LFS:-true}
+    volumes:
+      - shared_token:/shared:ro
+    networks:
+      - gjgit
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+
+  # ── GitHub proxy + cache (proxy profile only) ─────────────────────────────
+  ghproxy:
+    image: wjqserver/ghproxy:latest
+    container_name: gjgit-ghproxy
+    restart: unless-stopped
+    profiles: ["proxy"]
+    volumes:
+      - ./configs/ghproxy:/data/ghproxy/config:ro
+      - ghproxy_cache:/data/ghproxy/log
+    networks:
+      - gjgit
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 10s

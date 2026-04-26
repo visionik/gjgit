@@ -1,0 +1,43 @@
+# gjgit Caddyfile
+#
+# STANDALONE MODE (default):
+#   All traffic → Forgejo web UI on port 3000.
+#
+# PROXY MODE (--profile proxy):
+#   Git clone/push/pull paths and release downloads → ghproxy on port 8080
+#   for hybrid caching and GitHub acceleration. Web UI stays on Forgejo.
+#   Uncomment the PROXY MODE block below and comment out the STANDALONE block.
+#
+# HTTP/3 (QUIC) is enabled automatically on port 443/udp — no extra config needed.
+# TLS certificates are provisioned automatically via Let's Encrypt.
+
+{$DOMAIN} {
+
+    tls {$LETSENCRYPT_EMAIL}
+
+    # ── STANDALONE MODE ──────────────────────────────────────────────────────
+    # Route all traffic to Forgejo. Comment this out when using proxy mode.
+    reverse_proxy forgejo:3000
+
+    # ── PROXY MODE ───────────────────────────────────────────────────────────
+    # When running with --profile proxy, comment out the STANDALONE block
+    # above and uncomment this block. Git/release paths go to ghproxy for
+    # caching and acceleration; web UI paths stay on Forgejo.
+    #
+    # @git_paths {
+    #     path_regexp git \.git(/.*)?$
+    #     path /*/archive/*
+    #     path /*/releases/download/*
+    #     path /*/raw/*
+    #     path /*/media/*
+    # }
+    #
+    # handle @git_paths {
+    #     reverse_proxy ghproxy:8080
+    # }
+    #
+    # handle {
+    #     reverse_proxy forgejo:3000
+    # }
+
+}

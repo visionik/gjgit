@@ -1,0 +1,116 @@
+version: "3"
+
+set: [errexit, nounset, pipefail]
+
+tasks:
+  default:
+    desc: List all available tasks
+    silent: true
+    cmds:
+      - task --list
+
+  # ── Stack lifecycle ────────────────────────────────────────────────────────
+
+  up:
+    desc: Start the stack in standalone mode (Forgejo + Caddy)
+    cmds:
+      - docker compose up -d
+
+  up:proxy:
+    desc: Start the stack in proxy mode (Forgejo + Caddy + gitea-mirror + ghproxy)
+    cmds:
+      - docker compose --profile proxy up -d
+
+  down:
+    desc: Stop and remove containers (volumes preserved)
+    cmds:
+      - docker compose --profile proxy down
+
+  down:volumes:
+    desc: Stop and remove containers AND volumes (destructive — data loss)
+    prompt: This will delete all Forgejo data, caches, and tokens. Continue?
+    cmds:
+      - docker compose --profile proxy down -v
+
+  restart:
+    desc: Restart all running services
+    cmds:
+      - docker compose --profile proxy restart
+
+  pull:
+    desc: Pull latest images for all services
+    cmds:
+      - docker compose --profile proxy pull
+
+  logs:
+    desc: "Follow logs for all services (pass SERVICE= to filter, e.g. task logs SERVICE=forgejo)"
+    cmds:
+      - docker compose --profile proxy logs -f {{.SERVICE}}
+    vars:
+      SERVICE: '{{default "" .SERVICE}}'
+
+  ps:
+    desc: Show running service status
+    cmds:
+      - docker compose --profile proxy ps
+
+  # ── Quality ────────────────────────────────────────────────────────────────
+
+  check:
+    desc: Run all quality checks (lint + unit tests + integration tests)
+    cmds:
+      - task: lint
+      - task: test
+
+  lint:
+    desc: Lint shell scripts with shellcheck
+    cmds:
+      - shellcheck scripts/*.sh || true
+
+  fmt:
+    desc: Format shell scripts (no-op placeholder — add shfmt when needed)
+    cmds:
+      - echo 'fmt ok (no formatter configured yet)'
+
+  test:
+    desc: Run unit tests then integration tests
+    cmds:
+      - task: test:unit
+      - task: test:integration
+
+  test:unit:
+    desc: Run bats-core unit tests
+    cmds:
+      - bats tests/unit/
+
+  test:integration:
+    desc: Run docker compose integration tests (requires Docker)
+    cmds:
+      - bash tests/integration/standalone.sh
+      - bash tests/integration/proxy.sh
+
+  # ── Utilities ─────────────────────────────────────────────────────────────
+
+  bootstrap:
+    desc: Re-run the Forgejo bootstrap script (admin user + token generation)
+    cmds:
+      - docker compose run --rm bootstrap
+
+  up:smoke:
+    desc: Start stack with internal TLS for local smoke testing, wait for health, then tear down
+    cmds:
+      - |
+        set -euo pipefail
+        echo "Starting stack for smoke test..."
+        docker compose up -d
+        echo "Waiting for Forgejo to be healthy..."
+        for i in $(seq 1 30); do
+          if curl -sf http://localhost:3000/api/v1/version >/dev/null 2>&1; then
+            echo "Forgejo is up."
+            break
+          fi
+          echo "  attempt $i/30..."
+          sleep 2
+        done
+        echo "Smoke test complete. Tearing down..."
+        docker compose down

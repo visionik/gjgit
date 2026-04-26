@@ -1,0 +1,29 @@
+# Environment — never commit real credentials
+.env
+
+# Runtime data volumes (bind-mount dirs if used instead of named volumes)
+data/
+caddy_data/
+caddy_config/
+forgejo_data/
+ghproxy_cache/
+
+# Secrets — only .example templates are committed
+secrets/*.env
+secrets/*.token
+secrets/*.key
+secrets/*.pem
+!secrets/*.example
+
+# deft migration backups
+*.premigrate.*
+vbrief/migration/
+
+# macOS
+.DS_Store
+
+# Editor
+.idea/
+.vscode/
+*.swp
+*.swo

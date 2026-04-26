@@ -1,0 +1,43 @@
+{
+  "vBRIEFInfo": {
+    "version": "0.6",
+    "author": "agent:deft-directive-setup",
+    "description": "Implement the standalone Forgejo + Caddy base stack",
+    "created": "2026-04-26T20:38:00Z"
+  },
+  "plan": {
+    "title": "Standalone mode stack",
+    "status": "proposed",
+    "narrative": {
+      "Overview": "Implement the base docker-compose.yml with caddy and forgejo services only (standalone mode). Includes Caddyfile for standalone routing, .env.example with all global vars, and Forgejo SSH on port 2222. After this scope, docker compose up -d produces a working Forgejo instance with automatic HTTPS. Depends on: scaffold-project-structure.",
+      "Traces": "FR-1 (standalone mode), FR-2 (base profile = no proxy), FR-3 (Caddy HTTPS + HTTP/3), FR-4 (Forgejo SSH port 2222), FR-10 (.env.example global vars), NFR-1 (<5 min cold deploy), NFR-4 (no secrets in compose)"
+    },
+    "items": [
+      {
+        "id": "standalone-1",
+        "title": "docker-compose.yml — base services",
+        "description": "Define the gjgit network and two base services: caddy (caddy:2-alpine, ports 80/443/443-udp, mounts Caddyfile + caddy_data + caddy_config volumes, depends_on forgejo) and forgejo (codeberg.org/forgejo/forgejo:14, USER_UID/GID=1000, forgejo_data volume, SSH on host port ${FORGEJO_SSH_PORT:-2222}:22). All services: restart: unless-stopped, network gjgit. No secrets in compose file — all via env_file: .env."
+      },
+      {
+        "id": "standalone-2",
+        "title": "Named volumes and network declaration",
+        "description": "Declare top-level volumes: caddy_data, caddy_config, forgejo_data, shared_token (used by bootstrap scope later). Declare network gjgit with driver: bridge."
+      },
+      {
+        "id": "standalone-3",
+        "title": "Caddyfile — standalone routing",
+        "description": "Caddyfile binds to {$DOMAIN}. Routes all paths to forgejo:3000 via reverse_proxy. Enables TLS with {$LETSENCRYPT_EMAIL}. Enables HTTP/3 (no extra config needed in Caddy v2). Include a comment block explaining how proxy mode extends this file."
+      },
+      {
+        "id": "standalone-4",
+        "title": ".env.example — global section",
+        "description": "Populate the GLOBAL section of .env.example: DOMAIN, LETSENCRYPT_EMAIL, FORGEJO_SSH_PORT (default 2222), USER_UID, USER_GID. Every variable has an inline comment explaining its purpose and accepted values."
+      },
+      {
+        "id": "standalone-5",
+        "title": "Smoke test: docker compose up -d (local)",
+        "description": "Document and add a Taskfile task (task up:smoke) that starts the stack against a test domain using Caddy's internal_certs option, waits for Forgejo /api/v1/version to return 200, then tears down. This is a manual verification task, not a CI gate — the integration test scope adds the automated version."
+      }
+    ]
+  }
+}
