@@ -1,0 +1,53 @@
+{
+  "vBRIEFInfo": {
+    "version": "0.6",
+    "author": "agent:deft-directive-setup",
+    "description": "Deploy gjgit to fly.io with volumes, secrets, and end-to-end smoke test",
+    "created": "2026-04-26T23:39:00Z"
+  },
+  "plan": {
+    "title": "fly.io deployment + end-to-end token handoff verification",
+    "status": "proposed",
+    "narrative": {
+      "Overview": "Add fly.io deployment support for gjgit. Strategy: provision a Fly Machine (dedicated VM with Docker pre-installed), upload env vars as Fly secrets, mount Fly persistent volumes for forgejo_data and ghproxy_cache, and run the existing docker-compose.yml on the VM via SSH or fly exec. Also adds Taskfile tasks (task deploy:fly, task secrets:fly, task fly:ssh, task fly:logs) and a docs/fly-io.md guide. The end-to-end smoke test verifies the full bootstrap → token file → gitea-mirror token pickup chain on a real running stack (items 1 + 5 from post-ship roadmap). fly.io secrets replace the .env file so no credentials are committed or transferred in plaintext.",
+      "Traces": "Item 1 (deploy to real infrastructure), Item 5 (gitea-mirror token handoff e2e), user preference: fly.io for deployment (rule CyTLoLWhBsXUWJREM33nMV)"
+    },
+    "items": [
+      {
+        "id": "fly-1",
+        "title": "fly.toml — app definition",
+        "description": "Create fly.toml at project root defining: app name (gjgit or gjgit-{user}), primary region (hkg for China-first latency, lax as fallback), vm size (performance-2x: 2 CPUs, 4GB RAM minimum for Forgejo + ghproxy + gitea-mirror), kill_signal = SIGTERM. No processes block — the VM runs docker compose directly. Include a comment explaining the Fly Machine approach vs. native Fly app model."
+      },
+      {
+        "id": "fly-2",
+        "title": "scripts/fly-bootstrap.sh — one-time Fly setup",
+        "description": "Shell script (run once by the operator) that: (1) creates the Fly app via `fly apps create`; (2) creates Fly volumes: gjgit_forgejo_data (10GB) and gjgit_ghproxy_cache (20GB) in the target region; (3) allocates a dedicated IPv4 (required for Let's Encrypt HTTP-01 challenge); (4) sets the primary region. Must be idempotent — check if app/volumes already exist before creating. Requires flyctl authenticated (`fly auth whoami`)."
+      },
+      {
+        "id": "fly-3",
+        "title": "scripts/fly-secrets.sh — sync .env to Fly secrets",
+        "description": "Shell script that reads the local .env file and imports all variables as Fly secrets via `fly secrets import`. Must exclude comment lines and blank lines. Secrets are injected as env vars into the Fly Machine at runtime, replacing the .env file. Add a task (task secrets:fly) that calls this script. Never print secret values to stdout. Warn if .env doesn't exist and suggest copying from .env.example."
+      },
+      {
+        "id": "fly-4",
+        "title": "fly-compose.yml — fly-specific docker compose override",
+        "description": "Create fly-compose.yml (a docker compose override file) that adapts docker-compose.yml for Fly Machine deployment: (1) replaces named volume mounts with Fly persistent volume mount paths (e.g. /mnt/gjgit_forgejo_data, /mnt/gjgit_ghproxy_cache); (2) removes the env_file: .env directive (secrets injected via Fly env); (3) sets caddy to use Fly's public IP for HTTPS (Fly handles TLS termination OR Caddy uses the Fly-assigned domain). Document usage: `docker compose -f docker-compose.yml -f fly-compose.yml up -d`."
+      },
+      {
+        "id": "fly-5",
+        "title": "Taskfile.yml — fly deployment tasks",
+        "description": "Add to Taskfile.yml: task deploy:fly (SSH into fly machine, pull latest images, run docker compose with fly-compose.yml override), task secrets:fly (runs scripts/fly-secrets.sh), task fly:ssh (opens interactive SSH to the Fly Machine), task fly:logs (tails logs via fly logs), task fly:status (runs fly status + docker compose ps on the machine). Each task must have a desc and document prerequisites (flyctl installed + authenticated)."
+      },
+      {
+        "id": "fly-6",
+        "title": "E2E smoke test: bootstrap token handoff on live stack",
+        "description": "After deploying to fly.io, run an end-to-end verification: (1) SSH into the Fly Machine; (2) verify /shared/forgejo-token exists and is non-empty (bootstrap wrote it); (3) call the Forgejo API to verify the admin user exists; (4) check gitea-mirror logs confirm it picked up the token and attempted to contact Forgejo (even if GitHub mirror fails due to fake token in test). Document as task fly:smoke that executes these checks via fly ssh and reports pass/fail. This is the item 5 verification from the post-ship roadmap."
+      },
+      {
+        "id": "fly-7",
+        "title": "docs/fly-io.md — fly.io deployment guide",
+        "description": "Write docs/fly-io.md covering: prerequisites (flyctl install + auth), one-time setup (fly-bootstrap.sh), secrets setup (fly-secrets.sh or task secrets:fly), deploy command (task deploy:fly), how Fly volumes map to Docker volumes, SSH access (task fly:ssh), viewing logs (task fly:logs), upgrading (task deploy:fly re-runs with latest images), and cost estimate (performance-2x VM + 2 volumes in HKG region). Include a troubleshooting section for common Fly issues (volume mount permissions, port conflicts, TLS)."
+      }
+    ]
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "vBRIEFInfo": {
+    "version": "0.6",
+    "author": "agent:deft-directive-setup",
+    "description": "Add Smart-Git sidecar to ghproxy for git clone caching",
+    "created": "2026-04-26T23:39:00Z"
+  },
+  "plan": {
+    "title": "Smart-Git git clone caching",
+    "status": "proposed",
+    "narrative": {
+      "Overview": "Add WJQSERVER-STUDIO/smart-git as an optional sidecar to the proxy profile, enabling wjqserver/ghproxy's git clone cache mode. In bypass mode (current), ghproxy proxies git operations through to GitHub on every request. With Smart-Git in cache mode, cloned repos are stored on disk and served locally for subsequent requests — significantly reducing GitHub round-trips and latency for repeat clones. Smart-Git is added as a fourth service under the proxy profile. ghproxy config is updated from mode=bypass to mode=cache with smartGitAddr pointing to the Smart-Git sidecar. A smart_git_cache named volume is added for persistence. Depends on: fly-io-deployment (Smart-Git cache volume is allocated on Fly alongside the other volumes).",
+      "Traces": "Item 4 from post-ship roadmap (git clone caching), FR-8 extension (ghproxy caching beyond file/release proxy)"
+    },
+    "items": [
+      {
+        "id": "smartgit-1",
+        "title": "Research Smart-Git API and config",
+        "description": "Before writing any code: fetch https://github.com/WJQSERVER-STUDIO/smart-git README and config docs. Determine: (1) Docker image name and tag; (2) required env vars or config file format; (3) the HTTP API endpoint ghproxy calls (should match smartGitAddr in ghproxy config); (4) required volume paths for the cache; (5) any prerequisites (auth token, specific ghproxy version). Document findings as inline comments in the docker-compose.yml addition. Do NOT write code based on assumptions — read the Smart-Git docs first."
+      },
+      {
+        "id": "smartgit-2",
+        "title": "docker-compose.yml — smart-git service (proxy profile)",
+        "description": "Add smart-git service under profiles: [proxy]: image (from smartgit-1 research), restart: unless-stopped, network gjgit, volume smart_git_cache at the path Smart-Git expects. Add smart_git_cache to the top-level volumes block. The service must have a healthcheck. smart-git should start before ghproxy (add to ghproxy depends_on)."
+      },
+      {
+        "id": "smartgit-3",
+        "title": "configs/ghproxy/config.toml — switch to cache mode",
+        "description": "Update [gitclone] section: mode = 'cache' (was 'bypass'), smartGitAddr = 'http://smart-git:{PORT}' (port from smartgit-1 research). This is a breaking change for existing deployments — add a migration note in CHANGELOG.md explaining operators must run docker compose --profile proxy pull && docker compose --profile proxy up -d to pick up the new Smart-Git service."
+      },
+      {
+        "id": "smartgit-4",
+        "title": "fly-compose.yml — smart_git_cache volume override",
+        "description": "Add smart_git_cache volume mount override in fly-compose.yml, mapping to a Fly persistent volume path (e.g. /mnt/gjgit_smart_git_cache). Update scripts/fly-bootstrap.sh to create a gjgit_smart_git_cache Fly volume (10GB recommended). Only needed when the fly-io-deployment scope is also deployed."
+      },
+      {
+        "id": "smartgit-5",
+        "title": "Integration test: verify Smart-Git cache is used",
+        "description": "Extend tests/integration/proxy.sh: after starting the proxy stack, (1) assert smart-git container is running and healthy; (2) run a git clone through ghproxy against a known public repo (e.g. a tiny test repo); (3) check that smart-git's cache directory is non-empty after the clone. Teardown must remove the cached data. Add smart-git health endpoint assertion to the existing proxy health checks."
+      },
+      {
+        "id": "smartgit-6",
+        "title": "CHANGELOG.md and docs update",
+        "description": "Add [Unreleased] CHANGELOG entry for Smart-Git integration. Update docs/high-volume.md: remove the 'git clone caching via Smart-Git is not included in gjgit v1' note and replace with instructions for enabling it (it is now included). Update docker-compose.yml inline comment on ghproxy service to reflect cache mode."
+      }
+    ]
+  }
+}
