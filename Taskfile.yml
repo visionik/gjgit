@@ -116,12 +116,14 @@ tasks:
   deploy:fly:
     desc: Deploy gjgit standalone mode to fly.io
     cmds:
-      - fly deploy --config fly.toml
+      # --image tells fly which image to use for the primary container, skipping
+      # the Dockerfile/build step. All container images are defined in docker-compose.fly.yml.
+      - fly deploy --config fly.toml --image caddy:2-alpine
 
   deploy:fly:proxy:
     desc: Deploy gjgit proxy/mirror mode to fly.io
     cmds:
-      - fly deploy --config fly-proxy.toml
+      - fly deploy --config fly-proxy.toml --image caddy:2-alpine
 
   fly:ssh:
     desc: Open an interactive shell on the Fly Machine
