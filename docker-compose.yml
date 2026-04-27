@@ -67,6 +67,7 @@ services:
     volumes:
       - ./scripts:/scripts:ro
       - shared_token:/shared
+      - forgejo_data:/data:ro   # Read-only: bootstrap needs app.ini to run forgejo CLI
     networks:
       - gjgit
     entrypoint: ["/bin/sh", "/scripts/bootstrap.sh"]
