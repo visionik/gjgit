@@ -15,13 +15,14 @@
 #   task deploy:fly:proxy
 
 app            = "gjgit"
-primary_region = "hkg"   # Hong Kong — best CN2 GIA latency for mainland China
+primary_region = "nrt"   # Tokyo, Japan — closest fly.io region to mainland China
 kill_signal    = "SIGTERM"
 
 [build]
-  # flyctl parses this compose file and creates one container per service.
+  # flyctl v0.4.x+ parses this compose file (BuildCompose struct requires [build.compose]).
   # See docker-compose.fly.yml for Fly-specific adaptations.
-  compose = "docker-compose.fly.yml"
+  [build.compose]
+    file = "docker-compose.fly.yml"
 
 [http_service]
   # Fly proxy accepts HTTPS at the edge and forwards HTTP to Caddy on port 80.
@@ -32,7 +33,7 @@ kill_signal    = "SIGTERM"
   auto_start_machines = true
   min_machines_running = 1
 
-[vm]
+[[vm]]
   size   = "performance-2x"   # 2 vCPU, 4GB RAM — minimum for Forgejo + Caddy
   memory = "4096"
 

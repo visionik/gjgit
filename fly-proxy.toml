@@ -8,11 +8,12 @@
 #   MIRROR_RELEASES, MIRROR_LFS, GH_PROXY_CACHE_SIZE, GH_PROXY_RATE_LIMIT_RPS
 
 app            = "gjgit"
-primary_region = "hkg"
+primary_region = "nrt"   # Tokyo, Japan — closest fly.io region to mainland China
 kill_signal    = "SIGTERM"
 
 [build]
-  compose = "docker-compose.fly-proxy.yml"
+  [build.compose]
+    file = "docker-compose.fly-proxy.yml"
 
 [http_service]
   internal_port        = 80
@@ -21,7 +22,7 @@ kill_signal    = "SIGTERM"
   auto_start_machines  = true
   min_machines_running = 1
 
-[vm]
+[[vm]]
   size   = "performance-4x"   # 4 vCPU, 8GB RAM — ghproxy + gitea-mirror add load
   memory = "8192"
 

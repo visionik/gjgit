@@ -48,7 +48,7 @@ This creates:
 Customize the app name or region by setting env vars:
 
 ```bash
-FLY_APP=my-git-server FLY_REGION=lax task fly:bootstrap
+FLY_APP=my-git-server FLY_REGION=sin task fly:bootstrap  # Singapore alternative
 ```
 
 ## Configure secrets
