@@ -40,6 +40,8 @@ services:
     environment:
       - USER_UID=${USER_UID:-1000}
       - USER_GID=${USER_GID:-1000}
+      # Skip the web install wizard; bootstrap.sh creates admin via CLI
+      - FORGEJO__security__INSTALL_LOCK=true
     volumes:
       - forgejo_data:/data
       - /etc/localtime:/etc/localtime:ro
@@ -112,7 +114,8 @@ services:
     networks:
       - gjgit
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:8080/healthz"]
+      # smart-git image (Alpine minimal) has wget but not curl
+      test: ["CMD-SHELL", "wget -qO /dev/null http://localhost:8080/healthz || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 6
