@@ -40,15 +40,29 @@ docker compose --profile proxy up -d            # Proxy / mirror mode
 Caddy provisions a Let's Encrypt TLS certificate automatically on first start.  
 The admin account is created from `.env` credentials — no manual web UI signup needed.
 
-## First-run behaviour
+## First-run: admin user setup
 
-On first boot, the `bootstrap` service:
-1. Waits for Forgejo to be healthy
-2. Creates the admin user from `GITEA_ADMIN_USERNAME` / `GITEA_ADMIN_PASSWORD` / `GITEA_ADMIN_EMAIL`
-3. Generates a Forgejo API token and writes it to a shared volume
+**Local docker compose** — handled automatically:
 
-In proxy mode, `gitea-mirror` picks up that token automatically and begins mirroring.  
-The bootstrap service is idempotent — restarting it on an already-configured instance is safe.
+```bash
+task up              # starts Forgejo + Caddy
+task bootstrap       # creates admin + generates API token (proxy mode)
+```
+
+Admin credentials come from `.env` (`GITEA_ADMIN_USERNAME`, `GITEA_ADMIN_PASSWORD`).  
+> **Note**: `admin` is a reserved username in Forgejo. Use `gitadmin`, your name, etc.
+
+**fly.io** — one task after deploy:
+
+```bash
+task deploy:fly
+task fly:admin:create EMAIL=you@example.com         # creates 'gitadmin' with random password
+task fly:admin:create USERNAME=viz EMAIL=you@x.com  # or with a custom username
+task fly:admin:reset  USERNAME=viz                  # reset password later if needed
+```
+
+The random password is printed once — save it immediately. Change it at  
+https://gjgit.fly.dev/user/settings/security
 
 ## SSH access
 

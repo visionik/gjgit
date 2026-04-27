@@ -141,6 +141,38 @@ tasks:
       - fly status --app gjgit
       - fly ssh console --app gjgit --command 'ps aux | head -20' 2>/dev/null || true
 
+  fly:admin:create:
+    desc: "Create the Forgejo admin user on fly.io (first-run, generates random password)"
+    summary: |
+      Creates the admin user inside the running Fly Machine using su-exec git.
+      Prints the generated password — save it immediately.
+      USERNAME defaults to 'gitadmin'; override with USERNAME=yourname EMAIL=you@x.com
+    vars:
+      USERNAME: '{{default "gitadmin" .USERNAME}}'
+      EMAIL: '{{default "" .EMAIL}}'
+    requires:
+      vars: [EMAIL]
+    cmds:
+      - |
+        echo "[fly:admin:create] Creating admin user '{{.USERNAME}}' on gjgit.fly.dev..."
+        fly ssh console --app gjgit \
+          --command "su-exec git forgejo admin user create --admin --username '{{.USERNAME}}' --email '{{.EMAIL}}' --random-password --must-change-password=false --config /data/gitea/conf/app.ini"
+        echo ""
+        echo "  Save the password printed above — it cannot be retrieved again."
+        echo "  Change it at: https://gjgit.fly.dev/user/settings/security"
+
+  fly:admin:reset:
+    desc: "Reset a Forgejo admin user's password on fly.io (generates new random password)"
+    vars:
+      USERNAME: '{{default "gitadmin" .USERNAME}}'
+    cmds:
+      - |
+        echo "[fly:admin:reset] Resetting password for '{{.USERNAME}}'..."
+        fly ssh console --app gjgit \
+          --command "su-exec git forgejo admin user change-password --username '{{.USERNAME}}' --random-password --config /data/gitea/conf/app.ini"
+        echo ""
+        echo "  Save the new password printed above."
+
   fly:smoke:
     desc: Run E2E smoke test against the live fly.io standalone deployment
     cmds:

@@ -56,12 +56,14 @@ if [ "$HTTP_STATUS" = "200" ]; then
     echo "[bootstrap] Admin user '${ADMIN_USER}' already exists — skipping creation."
 else
     echo "[bootstrap] Creating admin user '${ADMIN_USER}'..."
-    forgejo admin user create \
+    # Forgejo refuses to run as root; su-exec drops to the git user (present in the image)
+    su-exec git forgejo admin user create \
         --username "${ADMIN_USER}" \
         --password "${ADMIN_PASS}" \
         --email "${ADMIN_EMAIL}" \
         --admin \
-        --must-change-password=false 2>&1 || {
+        --must-change-password=false \
+        --config /data/gitea/conf/app.ini 2>&1 || {
         echo "[bootstrap] ERROR: Failed to create admin user. Check Forgejo logs." >&2
         exit 1
     }
