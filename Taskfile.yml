@@ -9,6 +9,46 @@ tasks:
     cmds:
       - task --list
 
+  # ── Setup wizard ──────────────────────────────────────────────────────────
+
+  setup:deps:
+    desc: Install gum (TUI toolkit) required by the setup wizard
+    internal: true
+    cmds:
+      - sh scripts/setup-deps.sh
+
+  setup:
+    desc: "Interactive setup wizard — prompts for all config, writes .env"
+    deps: [setup:deps]
+    cmds:
+      - sh scripts/setup.sh
+
+  # ── Deployment ─────────────────────────────────────────────────────────────
+
+  deploy:local:
+    desc: "Start the stack locally using the mode set in .env (standalone or proxy)"
+    cmds:
+      - |
+        MODE=$(grep '^GJGIT_MODE=' .env 2>/dev/null | cut -d= -f2 || echo "standalone")
+        echo "Starting in ${MODE} mode..."
+        if [ "$MODE" = "proxy" ]; then
+          docker compose --profile proxy up -d
+        else
+          docker compose up -d
+        fi
+
+  package:
+    desc: "Build a portable deployment bundle (.tar.gz) for any Docker host"
+    cmds:
+      - sh scripts/package.sh
+
+  deploy:ssh:
+    desc: "Deploy to a remote Docker host over SSH — requires HOST=user@host"
+    requires:
+      vars: [HOST]
+    cmds:
+      - HOST={{.HOST}} sh scripts/deploy-ssh.sh
+
   # ── Stack lifecycle ────────────────────────────────────────────────────────
 
   up:

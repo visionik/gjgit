@@ -108,8 +108,9 @@ if [ -z "$TOKEN_VALUE" ]; then
 fi
 
 # Write to shared volume — never echo the token
+# 644: world-readable within the Docker network (no external exposure)
 printf '%s' "$TOKEN_VALUE" > "${TOKEN_FILE}"
-chmod 600 "${TOKEN_FILE}"
+chmod 644 "${TOKEN_FILE}"
 
 echo "[bootstrap] Token written to ${TOKEN_FILE}."
 echo "[bootstrap] Bootstrap complete."

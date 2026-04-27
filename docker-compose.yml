@@ -6,9 +6,10 @@ volumes:
   caddy_data:
   caddy_config:
   forgejo_data:
-  shared_token:    # Written by bootstrap, read by gitea-mirror
+  shared_token:       # Written by bootstrap, read by gitea-mirror
   ghproxy_cache:
-  smart_git_cache:   # Git bare repo cache for Smart-Git (proxy profile)
+  smart_git_cache:    # Git bare repo cache for Smart-Git (proxy profile)
+  gitea_mirror_data:  # gitea-mirror SQLite DB + config (persisted across restarts)
 
 services:
 
@@ -83,22 +84,63 @@ services:
     profiles: ["proxy"]
     env_file: .env
     environment:
-      # gitea-mirror reads the token from the shared volume at startup
+      # Token: loaded from shared file by our entrypoint shim → exported as GITEA_TOKEN
       - GITEA_TOKEN_FILE=/shared/forgejo-token
+      # Gitea connection
       - GITEA_URL=${GITEA_URL:-http://forgejo:3000}
-      - GITHUB_REPO=${GITHUB_REPO}
+      - GITEA_USERNAME=${GITEA_ADMIN_USERNAME}
+      # GitHub connection
       - GITHUB_TOKEN=${GITHUB_TOKEN}
-      - MIRROR_INTERVAL=${MIRROR_INTERVAL:-15m}
+      - GITHUB_USERNAME=${GITHUB_USERNAME}
+      # Mirror options
+      - GITEA_MIRROR_INTERVAL=${GITEA_MIRROR_INTERVAL:-15m}
       - MIRROR_ISSUES=${MIRROR_ISSUES:-true}
       - MIRROR_RELEASES=${MIRROR_RELEASES:-true}
-      - MIRROR_LFS=${MIRROR_LFS:-true}
+      - GITEA_LFS=${MIRROR_LFS:-true}
+      # Automation: auto-import and schedule on startup
+      - SCHEDULE_ENABLED=${SCHEDULE_ENABLED:-true}
+      - AUTO_IMPORT_REPOS=${AUTO_IMPORT_REPOS:-true}
+      # Auth
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
+      - BETTER_AUTH_URL=http://gitea-mirror:4321
+    entrypoint: ["/bin/sh", "/scripts/gitea-mirror-entrypoint.sh"]
     volumes:
+      - ./scripts:/scripts:ro
       - shared_token:/shared:ro
+      - gitea_mirror_data:/app/data
     networks:
       - gjgit
     depends_on:
       bootstrap:
         condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "http://localhost:4321/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  # ── gitea-mirror first-run bootstrap (proxy profile only) ────────────────
+  # Creates the gitea-mirror admin account on first boot (idempotent).
+  mirror-bootstrap:
+    image: alpine:3
+    container_name: gjgit-mirror-bootstrap
+    restart: "no"
+    profiles: ["proxy"]
+    env_file: .env
+    environment:
+      - GITEA_MIRROR_URL=http://gitea-mirror:4321
+      - GITEA_MIRROR_ADMIN_EMAIL=${GITEA_MIRROR_ADMIN_EMAIL}
+      - GITEA_MIRROR_ADMIN_PASSWORD=${GITEA_MIRROR_ADMIN_PASSWORD}
+      - MIRROR_REPOS=${MIRROR_REPOS}
+    volumes:
+      - ./scripts:/scripts:ro
+    networks:
+      - gjgit
+    entrypoint: ["/bin/sh", "-c", "apk add --no-cache curl jq -q && /scripts/mirror-bootstrap.sh"]
+    depends_on:
+      gitea-mirror:
+        condition: service_healthy
 
   # ── Git clone cache sidecar (proxy profile only) ──────────────────────────
   # Caches bare git repos locally. ghproxy calls it for git clone/fetch/push.

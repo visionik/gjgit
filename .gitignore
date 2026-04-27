@@ -22,6 +22,12 @@ vbrief/migration/
 # macOS
 .DS_Store
 
+# Local development overrides
+docker-compose.override.yml
+
+# Deployment bundles
+gjgit-deploy-*.tar.gz
+
 # fly.io
 .fly/
 *.fly.env
