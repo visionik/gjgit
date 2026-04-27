@@ -14,24 +14,16 @@
 #
 # Deploy: task deploy:fly  (requires: fly auth login, task secrets:fly)
 
-networks:
-  gjgit:
-    driver: bridge
-
 services:
 
   # ── Reverse proxy (HTTP-only — Fly handles TLS) ───────────────────────────
   caddy:
     image: caddy:2-alpine
-    container_name: gjgit-caddy
     restart: unless-stopped
     ports:
-      - "80:80"        # Fly proxy forwards here; no 443 (Fly handles TLS)
+      - "80:80"
     volumes:
       - ./Caddyfile.fly:/etc/caddy/Caddyfile:ro
-      # No data volume needed — HTTP-only Caddy has no TLS state to persist
-    networks:
-      - gjgit
     depends_on:
       forgejo:
         condition: service_healthy
@@ -39,7 +31,6 @@ services:
   # ── Git hosting ────────────────────────────────────────────────────────────
   forgejo:
     image: codeberg.org/forgejo/forgejo:14
-    container_name: gjgit-forgejo
     restart: unless-stopped
     environment:
       USER_UID: "${USER_UID:-1000}"
@@ -48,9 +39,7 @@ services:
       FORGEJO__server__SSH_DOMAIN: "${FORGEJO__server__SSH_DOMAIN:-}"
       FORGEJO__security__INSTALL_LOCK: "true"
     volumes:
-      - /mnt/data:/data     # Single Fly volume — Forgejo data root
-    networks:
-      - gjgit
+      - /mnt/data:/data
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:3000/api/v1/version"]
       interval: 10s
