@@ -36,7 +36,7 @@ echo "[fly-bootstrap] Authenticated as: $(fly auth whoami)"
 
 # ── Create app (idempotent) ───────────────────────────────────────────────────
 echo "[fly-bootstrap] Checking app '${APP_NAME}'..."
-if fly apps list 2>/dev/null | grep -q "^${APP_NAME} "; then
+if fly status --app "${APP_NAME}" > /dev/null 2>&1; then
     echo "[fly-bootstrap] App '${APP_NAME}' already exists — skipping."
 else
     echo "[fly-bootstrap] Creating app '${APP_NAME}'..."
