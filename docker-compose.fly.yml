@@ -37,11 +37,11 @@ services:
     container_name: gjgit-forgejo
     restart: unless-stopped
     environment:
-      - USER_UID=${USER_UID:-1000}
-      - USER_GID=${USER_GID:-1000}
-      # Tell Forgejo its public URL so generated clone URLs are correct
-      - FORGEJO__server__ROOT_URL=https://${FLY_APP_NAME}.fly.dev/
-      - FORGEJO__server__SSH_DOMAIN=${FLY_APP_NAME}.fly.dev
+      USER_UID: "${USER_UID:-1000}"
+      USER_GID: "${USER_GID:-1000}"
+      # Set via fly secrets: FORGEJO__server__ROOT_URL=https://gjgit.fly.dev/
+      FORGEJO__server__ROOT_URL: "${FORGEJO__server__ROOT_URL:-}"
+      FORGEJO__server__SSH_DOMAIN: "${FORGEJO__server__SSH_DOMAIN:-}"
     volumes:
       - /mnt/forgejo_data:/data       # Fly persistent volume
     networks:
@@ -59,10 +59,10 @@ services:
     container_name: gjgit-bootstrap
     restart: "no"
     environment:
-      - GITEA_URL=${GITEA_URL:-http://forgejo:3000}
-      - GITEA_ADMIN_USERNAME=${GITEA_ADMIN_USERNAME}
-      - GITEA_ADMIN_PASSWORD=${GITEA_ADMIN_PASSWORD}
-      - GITEA_ADMIN_EMAIL=${GITEA_ADMIN_EMAIL}
+      GITEA_URL: "${GITEA_URL:-http://forgejo:3000}"
+      GITEA_ADMIN_USERNAME: "${GITEA_ADMIN_USERNAME}"
+      GITEA_ADMIN_PASSWORD: "${GITEA_ADMIN_PASSWORD}"
+      GITEA_ADMIN_EMAIL: "${GITEA_ADMIN_EMAIL}"
     volumes:
       - ./scripts:/scripts:ro
       - /mnt/shared_token:/shared     # Fly persistent volume

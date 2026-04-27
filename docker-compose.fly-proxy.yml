@@ -29,10 +29,10 @@ services:
     container_name: gjgit-forgejo
     restart: unless-stopped
     environment:
-      - USER_UID=${USER_UID:-1000}
-      - USER_GID=${USER_GID:-1000}
-      - FORGEJO__server__ROOT_URL=https://${FLY_APP_NAME}.fly.dev/
-      - FORGEJO__server__SSH_DOMAIN=${FLY_APP_NAME}.fly.dev
+      USER_UID: "${USER_UID:-1000}"
+      USER_GID: "${USER_GID:-1000}"
+      FORGEJO__server__ROOT_URL: "${FORGEJO__server__ROOT_URL:-}"
+      FORGEJO__server__SSH_DOMAIN: "${FORGEJO__server__SSH_DOMAIN:-}"
     volumes:
       - /mnt/forgejo_data:/data
     networks:
@@ -49,10 +49,10 @@ services:
     container_name: gjgit-bootstrap
     restart: "no"
     environment:
-      - GITEA_URL=${GITEA_URL:-http://forgejo:3000}
-      - GITEA_ADMIN_USERNAME=${GITEA_ADMIN_USERNAME}
-      - GITEA_ADMIN_PASSWORD=${GITEA_ADMIN_PASSWORD}
-      - GITEA_ADMIN_EMAIL=${GITEA_ADMIN_EMAIL}
+      GITEA_URL: "${GITEA_URL:-http://forgejo:3000}"
+      GITEA_ADMIN_USERNAME: "${GITEA_ADMIN_USERNAME}"
+      GITEA_ADMIN_PASSWORD: "${GITEA_ADMIN_PASSWORD}"
+      GITEA_ADMIN_EMAIL: "${GITEA_ADMIN_EMAIL}"
     volumes:
       - ./scripts:/scripts:ro
       - /mnt/shared_token:/shared
@@ -69,14 +69,14 @@ services:
     container_name: gjgit-gitea-mirror
     restart: unless-stopped
     environment:
-      - GITEA_TOKEN_FILE=/shared/forgejo-token
-      - GITEA_URL=${GITEA_URL:-http://forgejo:3000}
-      - GITHUB_REPO=${GITHUB_REPO}
-      - GITHUB_TOKEN=${GITHUB_TOKEN}
-      - MIRROR_INTERVAL=${MIRROR_INTERVAL:-15m}
-      - MIRROR_ISSUES=${MIRROR_ISSUES:-true}
-      - MIRROR_RELEASES=${MIRROR_RELEASES:-true}
-      - MIRROR_LFS=${MIRROR_LFS:-true}
+      GITEA_TOKEN_FILE: "/shared/forgejo-token"
+      GITEA_URL: "${GITEA_URL:-http://forgejo:3000}"
+      GITHUB_REPO: "${GITHUB_REPO}"
+      GITHUB_TOKEN: "${GITHUB_TOKEN}"
+      MIRROR_INTERVAL: "${MIRROR_INTERVAL:-15m}"
+      MIRROR_ISSUES: "${MIRROR_ISSUES:-true}"
+      MIRROR_RELEASES: "${MIRROR_RELEASES:-true}"
+      MIRROR_LFS: "${MIRROR_LFS:-true}"
     volumes:
       - /mnt/shared_token:/shared:ro
     networks:
