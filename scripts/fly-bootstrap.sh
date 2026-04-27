@@ -17,7 +17,7 @@
 set -eu
 
 APP_NAME="${FLY_APP:-gjgit}"
-REGION="${FLY_REGION:-hkg}"
+REGION="${FLY_REGION:-nrt}"   # nrt=Tokyo; use sin for Singapore or lax for LA
 PROXY_MODE=0
 
 for arg in "$@"; do
@@ -36,7 +36,7 @@ echo "[fly-bootstrap] Authenticated as: $(fly auth whoami)"
 
 # ── Create app (idempotent) ───────────────────────────────────────────────────
 echo "[fly-bootstrap] Checking app '${APP_NAME}'..."
-if fly apps list --json 2>/dev/null | grep -q "\"name\":\"${APP_NAME}\""; then
+if fly apps list 2>/dev/null | grep -q "^${APP_NAME} "; then
     echo "[fly-bootstrap] App '${APP_NAME}' already exists — skipping."
 else
     echo "[fly-bootstrap] Creating app '${APP_NAME}'..."
@@ -49,7 +49,7 @@ create_volume() {
     VNAME="$1"
     VSIZE="$2"
     echo "[fly-bootstrap] Checking volume '${VNAME}'..."
-    if fly volumes list --app "${APP_NAME}" --json 2>/dev/null | grep -q "\"name\":\"${VNAME}\""; then
+    if fly volumes list --app "${APP_NAME}" 2>/dev/null | grep -q "${VNAME}"; then
         echo "[fly-bootstrap] Volume '${VNAME}' already exists — skipping."
     else
         echo "[fly-bootstrap] Creating volume '${VNAME}' (${VSIZE}GB) in ${REGION}..."
@@ -72,7 +72,7 @@ fi
 
 # ── Allocate public IPv4 (idempotent) ─────────────────────────────────────────
 echo "[fly-bootstrap] Checking public IP..."
-if fly ips list --app "${APP_NAME}" --json 2>/dev/null | grep -q '"type":"v4"'; then
+if fly ips list --app "${APP_NAME}" 2>/dev/null | grep -q 'v4'; then
     echo "[fly-bootstrap] Public IPv4 already allocated — skipping."
 else
     echo "[fly-bootstrap] Allocating dedicated IPv4 (required for Let's Encrypt)..."
