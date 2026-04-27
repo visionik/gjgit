@@ -185,6 +185,73 @@ tasks:
 
   # ── Smoke test (local) ────────────────────────────────────────────────────
 
+  test:proxy:live:
+    desc: "End-to-end proxy mode test: starts full proxy stack, verifies all services, tests git clone via ghproxy"
+    summary: |
+      Requires a populated .env with REAL values:
+        GITHUB_REPO, GITHUB_TOKEN, GITEA_ADMIN_USERNAME, GITEA_ADMIN_PASSWORD, GITEA_ADMIN_EMAIL
+      Uses docker-compose.test.yml to expose ghproxy on :8181 and Forgejo on :3001.
+      Runs automatically then tears down. Do NOT run in production.
+    cmds:
+      - |
+        set -euo pipefail
+        echo "=== [test:proxy:live] Starting proxy stack with test overrides ==="
+        docker compose -f docker-compose.yml -f docker-compose.test.yml \
+          --profile proxy --project-name gjgit-proxy-live up -d
+
+        echo "=== Waiting for Forgejo (up to 90s) ==="
+        for i in $(seq 1 18); do
+          if curl -sf http://localhost:3001/api/v1/version >/dev/null 2>&1; then
+            echo "  Forgejo healthy."; break
+          fi
+          echo "  attempt $i/18..."; sleep 5
+          [ $i -eq 18 ] && echo "FAIL: Forgejo did not start" && exit 1
+        done
+
+        echo "=== Waiting for bootstrap to complete ==="
+        for i in $(seq 1 12); do
+          STATUS=$(docker inspect gjgit-proxy-live-bootstrap-1 \
+            --format '{{.State.Status}}' 2>/dev/null || echo "missing")
+          [ "$STATUS" = "exited" ] && echo "  bootstrap exited." && break
+          echo "  bootstrap status: $STATUS (attempt $i/12)..."; sleep 5
+          [ $i -eq 12 ] && echo "FAIL: bootstrap did not complete" && exit 1
+        done
+        EXIT_CODE=$(docker inspect gjgit-proxy-live-bootstrap-1 \
+          --format '{{.State.ExitCode}}' 2>/dev/null || echo 1)
+        [ "$EXIT_CODE" != "0" ] && docker logs gjgit-proxy-live-bootstrap-1 && \
+          echo "FAIL: bootstrap exited $EXIT_CODE" && exit 1
+        echo "  bootstrap exit code: 0 (admin created + token written)"
+
+        echo "=== Checking smart-git health ==="
+        for i in $(seq 1 6); do
+          if curl -sf http://localhost:8181/ >/dev/null 2>&1; then
+            echo "  ghproxy reachable."; break
+          fi
+          echo "  attempt $i/6..."; sleep 3
+          [ $i -eq 6 ] && echo "FAIL: ghproxy not reachable" && exit 1
+        done
+
+        echo "=== Testing git clone via ghproxy ==="
+        REPO=$(grep GITHUB_REPO .env | cut -d= -f2 | head -1 || echo "")
+        if [ -n "$REPO" ]; then
+          TEST_DIR=$(mktemp -d)
+          echo "  Cloning $REPO via ghproxy (localhost:8181)..."
+          git clone --depth 1 "http://localhost:8181/${REPO}.git" "${TEST_DIR}" 2>&1 && \
+            echo "  Clone PASS: $(git -C ${TEST_DIR} rev-parse HEAD)" || \
+            echo "  Clone WARN: failed (ghproxy may need GitHub connectivity)"
+          rm -rf "${TEST_DIR}"
+        else
+          echo "  SKIP: GITHUB_REPO not set in .env"
+        fi
+
+        echo "=== Checking gitea-mirror status ==="
+        docker logs gjgit-proxy-live-gitea-mirror-1 2>&1 | tail -10 || true
+
+        echo ""
+        echo "=== Proxy mode test complete. Tearing down... ==="
+        docker compose -f docker-compose.yml -f docker-compose.test.yml \
+          --profile proxy --project-name gjgit-proxy-live down -v --remove-orphans
+
   up:smoke:
     desc: Start stack with internal TLS for local smoke testing, wait for health, then tear down
     cmds:

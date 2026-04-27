@@ -1,0 +1,22 @@
+# docker-compose.test.yml — local test overrides for proxy mode
+#
+# Exposes ghproxy on host port 8181 so you can git clone through it
+# from the host machine during manual proxy mode testing.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.test.yml \
+#     --profile proxy up -d
+#
+# Then test:
+#   git clone http://localhost:8181/owner/repo.git /tmp/test-clone
+#
+# Do NOT use in production — this file is for testing only.
+
+services:
+  ghproxy:
+    ports:
+      - "8181:8080"   # Expose for local test; internal port stays 8080
+
+  forgejo:
+    ports:
+      - "3001:3000"   # Expose Forgejo web UI for testing (avoids conflict with any local :3000)
