@@ -26,18 +26,8 @@ kill_signal    = "SIGTERM"
   size   = "performance-4x"   # 4 vCPU, 8GB RAM — ghproxy + gitea-mirror add load
   memory = "8192"
 
+# Fly Machines support only 1 volume per machine.
+# forgejo_data covers Forgejo + token. ghproxy_cache is a second machine (see docs/scaling.md).
 [[mounts]]
   source      = "forgejo_data"
-  destination = "/mnt/forgejo_data"
-
-[[mounts]]
-  source      = "caddy_data"
-  destination = "/mnt/caddy_data"
-
-[[mounts]]
-  source      = "shared_token"
-  destination = "/mnt/shared_token"
-
-[[mounts]]
-  source      = "ghproxy_cache"
-  destination = "/mnt/ghproxy_cache"
+  destination = "/mnt/data"

@@ -62,9 +62,9 @@ create_volume() {
     fi
 }
 
-create_volume "forgejo_data"  10   # Forgejo git repos + sqlite DB
-create_volume "caddy_data"    1    # Caddy TLS cert cache
-create_volume "shared_token"  1    # Bootstrap token (very small)
+# Fly Machines support only 1 volume per machine.
+# Single 'forgejo_data' volume (15GB) covers Forgejo data + bootstrap token subdirectory.
+create_volume "forgejo_data"  15
 
 if [ "$PROXY_MODE" = "1" ]; then
     create_volume "ghproxy_cache" 20  # ghproxy request/response cache

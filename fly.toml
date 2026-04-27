@@ -37,20 +37,14 @@ kill_signal    = "SIGTERM"
   size   = "performance-2x"   # 2 vCPU, 4GB RAM — minimum for Forgejo + Caddy
   memory = "4096"
 
-# Persistent volume: Forgejo data (git repos, sqlite DB, config)
+# Fly Machines support only 1 volume per machine.
+# Single volume covers Forgejo data AND the bootstrap token (as a subdirectory).
 [[mounts]]
   source      = "forgejo_data"
-  destination = "/mnt/forgejo_data"
-
-# Persistent volume: Caddy TLS data (cert cache, OCSP stapling)
-[[mounts]]
-  source      = "caddy_data"
-  destination = "/mnt/caddy_data"
-
-# Persistent volume: Bootstrap shared token (written by bootstrap, read by gitea-mirror)
-[[mounts]]
-  source      = "shared_token"
-  destination = "/mnt/shared_token"
+  destination = "/mnt/data"
+  # Layout inside the volume:
+  #   /mnt/data/           → Forgejo data root (USER_UID writes here)
+  #   /mnt/data/token/     → Bootstrap token (forgejo-token file)
 
 # Fly Proxy configuration for SSH passthrough (Forgejo SSH on port 2222)
 # Uncomment to enable SSH access:

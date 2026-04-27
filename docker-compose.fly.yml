@@ -1,11 +1,16 @@
 # gjgit — fly.io standalone compose
 #
-# Fly.io adaptations vs docker-compose.yml:
+# Fly.io adaptations:
 #   - env_file removed: secrets injected by Fly via `fly secrets import`
-#   - Named volumes replaced with /mnt/ paths (Fly persistent volumes from fly.toml [[mounts]])
-#   - Caddy ports: 80 only (Fly handles TLS at edge; no 443 exposed from container)
-#   - No /etc/localtime bind mount (Fly machines have UTC)
-#   - Services communicate via localhost; service names resolve via /etc/hosts injection
+#   - Single volume at /mnt/data (Fly Machines support only 1 volume per machine)
+#   - Caddy: port 80 only, no TLS (Fly handles HTTPS at the edge)
+#   - No /etc/localtime bind mount (Fly machines use UTC)
+#   - No ./scripts bind mount (flyctl can't embed directories; use fly ssh for bootstrap)
+#   - Services communicate via localhost; names resolve via /etc/hosts injection
+#
+# First-run admin setup (after deploy):
+#   fly ssh console --app gjgit
+#   forgejo admin user create --admin --username admin --password <pass> --email <email>
 #
 # Deploy: task deploy:fly  (requires: fly auth login, task secrets:fly)
 
@@ -24,7 +29,7 @@ services:
       - "80:80"        # Fly proxy forwards here; no 443 (Fly handles TLS)
     volumes:
       - ./Caddyfile.fly:/etc/caddy/Caddyfile:ro
-      - /mnt/caddy_data:/data         # Fly persistent volume
+      # No data volume needed — HTTP-only Caddy has no TLS state to persist
     networks:
       - gjgit
     depends_on:
@@ -39,11 +44,11 @@ services:
     environment:
       USER_UID: "${USER_UID:-1000}"
       USER_GID: "${USER_GID:-1000}"
-      # Set via fly secrets: FORGEJO__server__ROOT_URL=https://gjgit.fly.dev/
       FORGEJO__server__ROOT_URL: "${FORGEJO__server__ROOT_URL:-}"
       FORGEJO__server__SSH_DOMAIN: "${FORGEJO__server__SSH_DOMAIN:-}"
+      FORGEJO__security__INSTALL_LOCK: "true"
     volumes:
-      - /mnt/forgejo_data:/data       # Fly persistent volume
+      - /mnt/data:/data     # Single Fly volume — Forgejo data root
     networks:
       - gjgit
     healthcheck:
@@ -53,22 +58,6 @@ services:
       retries: 12
       start_period: 30s
 
-  # ── First-run bootstrap (one-shot) ────────────────────────────────────────
-  bootstrap:
-    image: codeberg.org/forgejo/forgejo:14
-    container_name: gjgit-bootstrap
-    restart: "no"
-    environment:
-      GITEA_URL: "${GITEA_URL:-http://forgejo:3000}"
-      GITEA_ADMIN_USERNAME: "${GITEA_ADMIN_USERNAME}"
-      GITEA_ADMIN_PASSWORD: "${GITEA_ADMIN_PASSWORD}"
-      GITEA_ADMIN_EMAIL: "${GITEA_ADMIN_EMAIL}"
-    volumes:
-      - ./scripts:/scripts:ro
-      - /mnt/shared_token:/shared     # Fly persistent volume
-    networks:
-      - gjgit
-    entrypoint: ["/bin/sh", "/scripts/bootstrap.sh"]
-    depends_on:
-      forgejo:
-        condition: service_healthy
+  # Bootstrap runs manually via: fly ssh console --app gjgit
+  # Then: forgejo admin user create --admin --username admin --password <pass> --email <email>
+  # The ./scripts bind mount cannot be used on fly.io (flyctl cannot embed directories).
