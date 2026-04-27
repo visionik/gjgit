@@ -96,6 +96,63 @@ tasks:
     cmds:
       - docker compose run --rm bootstrap
 
+  # ── fly.io deployment ────────────────────────────────────────────────────
+
+  fly:bootstrap:
+    desc: "One-time Fly.io setup: create app, volumes, and public IP"
+    cmds:
+      - sh scripts/fly-bootstrap.sh
+
+  fly:bootstrap:proxy:
+    desc: "One-time Fly.io setup for proxy mode (adds ghproxy_cache volume)"
+    cmds:
+      - sh scripts/fly-bootstrap.sh --proxy
+
+  secrets:fly:
+    desc: Upload .env secrets to Fly.io (run after editing .env)
+    cmds:
+      - sh scripts/fly-secrets.sh
+
+  deploy:fly:
+    desc: Deploy gjgit standalone mode to fly.io
+    cmds:
+      - fly deploy --config fly.toml
+
+  deploy:fly:proxy:
+    desc: Deploy gjgit proxy/mirror mode to fly.io
+    cmds:
+      - fly deploy --config fly-proxy.toml
+
+  fly:ssh:
+    desc: Open an interactive shell on the Fly Machine
+    cmds:
+      - fly ssh console --app gjgit
+
+  fly:logs:
+    desc: "Tail Fly.io logs (pass APP=<name> to override app)"
+    cmds:
+      - fly logs --app '{{.APP}}'
+    vars:
+      APP: '{{default "gjgit" .APP}}'
+
+  fly:status:
+    desc: Show Fly Machine status and running containers
+    cmds:
+      - fly status --app gjgit
+      - fly ssh console --app gjgit --command 'ps aux | head -20' 2>/dev/null || true
+
+  fly:smoke:
+    desc: Run E2E smoke test against the live fly.io standalone deployment
+    cmds:
+      - sh scripts/fly-smoke.sh
+
+  fly:smoke:proxy:
+    desc: Run E2E smoke test against the live fly.io proxy deployment
+    cmds:
+      - sh scripts/fly-smoke.sh --proxy
+
+  # ── Smoke test (local) ────────────────────────────────────────────────────
+
   up:smoke:
     desc: Start stack with internal TLS for local smoke testing, wait for health, then tear down
     cmds:

@@ -1,0 +1,60 @@
+# gjgit — fly.io deployment (standalone mode)
+#
+# Deployment model: flyctl native multi-container Machines.
+# flyctl v0.3.147+ parses docker-compose.fly.yml and maps services to
+# containers on a single Fly Machine. Services communicate via localhost
+# (/etc/hosts maps service names → 127.0.0.1 automatically).
+# Fly.io handles TLS at the edge; Caddy runs HTTP-only internally.
+#
+# Usage:
+#   task secrets:fly          # Import .env as Fly secrets (one-time + on change)
+#   task deploy:fly           # Deploy / update standalone stack
+#   task fly:ssh              # Open shell on the Machine
+#
+# For proxy mode (+ gitea-mirror + ghproxy), use fly-proxy.toml:
+#   task deploy:fly:proxy
+
+app            = "gjgit"
+primary_region = "hkg"   # Hong Kong — best CN2 GIA latency for mainland China
+kill_signal    = "SIGTERM"
+
+[build]
+  # flyctl parses this compose file and creates one container per service.
+  # See docker-compose.fly.yml for Fly-specific adaptations.
+  compose = "docker-compose.fly.yml"
+
+[http_service]
+  # Fly proxy accepts HTTPS at the edge and forwards HTTP to Caddy on port 80.
+  # Caddy handles path-based routing to Forgejo internally.
+  internal_port       = 80
+  force_https         = true
+  auto_stop_machines  = false   # Keep always-on — git hosting must not cold-start
+  auto_start_machines = true
+  min_machines_running = 1
+
+[vm]
+  size   = "performance-2x"   # 2 vCPU, 4GB RAM — minimum for Forgejo + Caddy
+  memory = "4096"
+
+# Persistent volume: Forgejo data (git repos, sqlite DB, config)
+[[mounts]]
+  source      = "forgejo_data"
+  destination = "/mnt/forgejo_data"
+
+# Persistent volume: Caddy TLS data (cert cache, OCSP stapling)
+[[mounts]]
+  source      = "caddy_data"
+  destination = "/mnt/caddy_data"
+
+# Persistent volume: Bootstrap shared token (written by bootstrap, read by gitea-mirror)
+[[mounts]]
+  source      = "shared_token"
+  destination = "/mnt/shared_token"
+
+# Fly Proxy configuration for SSH passthrough (Forgejo SSH on port 2222)
+# Uncomment to enable SSH access:
+# [[services]]
+#   protocol   = "tcp"
+#   internal_port = 22
+#   [[services.ports]]
+#     port = 2222

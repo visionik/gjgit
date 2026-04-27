@@ -1,0 +1,33 @@
+# gjgit Caddyfile — fly.io deployment
+#
+# fly.io handles TLS at the edge (force_https = true in fly.toml).
+# Caddy listens on HTTP port 80 only and routes internally.
+# Service names (forgejo, ghproxy) resolve via /etc/hosts on the Fly Machine.
+
+:80 {
+
+    # ── STANDALONE MODE ──────────────────────────────────────────────────────
+    # Route all traffic to Forgejo. Comment out when using proxy mode.
+    reverse_proxy forgejo:3000
+
+    # ── PROXY MODE ───────────────────────────────────────────────────────────
+    # When deploying with docker-compose.fly-proxy.yml, comment out the
+    # STANDALONE block above and uncomment this block.
+    #
+    # @git_paths {
+    #     path_regexp git \.git(/.*)?$
+    #     path /*/archive/*
+    #     path /*/releases/download/*
+    #     path /*/raw/*
+    #     path /*/media/*
+    # }
+    #
+    # handle @git_paths {
+    #     reverse_proxy ghproxy:8080
+    # }
+    #
+    # handle {
+    #     reverse_proxy forgejo:3000
+    # }
+
+}

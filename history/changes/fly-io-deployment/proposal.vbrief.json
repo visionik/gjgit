@@ -1,0 +1,17 @@
+{
+  "vBRIEFInfo": {
+    "version": "0.6",
+    "author": "agent:deft-directive-build",
+    "description": "Change proposal: fly.io deployment",
+    "created": "2026-04-27T00:28:00Z"
+  },
+  "plan": {
+    "title": "fly-io-deployment",
+    "status": "running",
+    "narratives": {
+      "Overview": "Add fly.io deployment support using native flyctl multi-container Machines. flyctl v0.3.147+ parses docker-compose.yml natively via [build] compose field; services communicate via localhost with /etc/hosts mapping. fly.io handles TLS at edge; Caddy runs HTTP-only internally. Named volumes replaced with Fly persistent volumes via [[mounts]]. Confirmed by user 2026-04-27T00:28:00Z.",
+      "Architecture": "fly.io Machines (not Docker VMs). Multi-container via flyctl compose support. Standalone: fly.toml + docker-compose.fly.yml. Proxy: fly-proxy.toml + docker-compose.fly-proxy.yml. Fly secrets replace .env."
+    },
+    "items": []
+  }
+}

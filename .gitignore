@@ -22,6 +22,10 @@ vbrief/migration/
 # macOS
 .DS_Store
 
+# fly.io
+.fly/
+*.fly.env
+
 # Editor
 .idea/
 .vscode/

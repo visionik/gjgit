@@ -1,0 +1,103 @@
+# gjgit — fly.io proxy/mirror compose
+#
+# Extends standalone (docker-compose.fly.yml) with ghproxy + gitea-mirror.
+# Deploy with: task deploy:fly:proxy  (uses fly-proxy.toml)
+
+networks:
+  gjgit:
+    driver: bridge
+
+services:
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: gjgit-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./Caddyfile.fly:/etc/caddy/Caddyfile:ro
+      - /mnt/caddy_data:/data
+    networks:
+      - gjgit
+    depends_on:
+      forgejo:
+        condition: service_healthy
+
+  forgejo:
+    image: codeberg.org/forgejo/forgejo:14
+    container_name: gjgit-forgejo
+    restart: unless-stopped
+    environment:
+      - USER_UID=${USER_UID:-1000}
+      - USER_GID=${USER_GID:-1000}
+      - FORGEJO__server__ROOT_URL=https://${FLY_APP_NAME}.fly.dev/
+      - FORGEJO__server__SSH_DOMAIN=${FLY_APP_NAME}.fly.dev
+    volumes:
+      - /mnt/forgejo_data:/data
+    networks:
+      - gjgit
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:3000/api/v1/version"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  bootstrap:
+    image: codeberg.org/forgejo/forgejo:14
+    container_name: gjgit-bootstrap
+    restart: "no"
+    environment:
+      - GITEA_URL=${GITEA_URL:-http://forgejo:3000}
+      - GITEA_ADMIN_USERNAME=${GITEA_ADMIN_USERNAME}
+      - GITEA_ADMIN_PASSWORD=${GITEA_ADMIN_PASSWORD}
+      - GITEA_ADMIN_EMAIL=${GITEA_ADMIN_EMAIL}
+    volumes:
+      - ./scripts:/scripts:ro
+      - /mnt/shared_token:/shared
+    networks:
+      - gjgit
+    entrypoint: ["/bin/sh", "/scripts/bootstrap.sh"]
+    depends_on:
+      forgejo:
+        condition: service_healthy
+
+  # ── GitHub mirror ─────────────────────────────────────────────────────────
+  gitea-mirror:
+    image: ghcr.io/raylabshq/gitea-mirror:latest
+    container_name: gjgit-gitea-mirror
+    restart: unless-stopped
+    environment:
+      - GITEA_TOKEN_FILE=/shared/forgejo-token
+      - GITEA_URL=${GITEA_URL:-http://forgejo:3000}
+      - GITHUB_REPO=${GITHUB_REPO}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - MIRROR_INTERVAL=${MIRROR_INTERVAL:-15m}
+      - MIRROR_ISSUES=${MIRROR_ISSUES:-true}
+      - MIRROR_RELEASES=${MIRROR_RELEASES:-true}
+      - MIRROR_LFS=${MIRROR_LFS:-true}
+    volumes:
+      - /mnt/shared_token:/shared:ro
+    networks:
+      - gjgit
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+
+  # ── GitHub proxy + cache ──────────────────────────────────────────────────
+  ghproxy:
+    image: wjqserver/ghproxy:latest
+    container_name: gjgit-ghproxy
+    restart: unless-stopped
+    volumes:
+      - ./configs/ghproxy:/data/ghproxy/config:ro
+      - /mnt/ghproxy_cache:/data/ghproxy/log
+    networks:
+      - gjgit
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 10s

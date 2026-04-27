@@ -1,0 +1,42 @@
+# gjgit — fly.io deployment (proxy/mirror mode)
+#
+# Same as fly.toml but adds ghproxy + gitea-mirror services and their volumes.
+# Deploy with: task deploy:fly:proxy
+#
+# Requires additional Fly secrets:
+#   GITHUB_REPO, GITHUB_TOKEN, MIRROR_INTERVAL, MIRROR_ISSUES,
+#   MIRROR_RELEASES, MIRROR_LFS, GH_PROXY_CACHE_SIZE, GH_PROXY_RATE_LIMIT_RPS
+
+app            = "gjgit"
+primary_region = "hkg"
+kill_signal    = "SIGTERM"
+
+[build]
+  compose = "docker-compose.fly-proxy.yml"
+
+[http_service]
+  internal_port        = 80
+  force_https          = true
+  auto_stop_machines   = false
+  auto_start_machines  = true
+  min_machines_running = 1
+
+[vm]
+  size   = "performance-4x"   # 4 vCPU, 8GB RAM — ghproxy + gitea-mirror add load
+  memory = "8192"
+
+[[mounts]]
+  source      = "forgejo_data"
+  destination = "/mnt/forgejo_data"
+
+[[mounts]]
+  source      = "caddy_data"
+  destination = "/mnt/caddy_data"
+
+[[mounts]]
+  source      = "shared_token"
+  destination = "/mnt/shared_token"
+
+[[mounts]]
+  source      = "ghproxy_cache"
+  destination = "/mnt/ghproxy_cache"

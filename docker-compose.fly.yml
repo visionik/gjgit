@@ -1,0 +1,74 @@
+# gjgit — fly.io standalone compose
+#
+# Fly.io adaptations vs docker-compose.yml:
+#   - env_file removed: secrets injected by Fly via `fly secrets import`
+#   - Named volumes replaced with /mnt/ paths (Fly persistent volumes from fly.toml [[mounts]])
+#   - Caddy ports: 80 only (Fly handles TLS at edge; no 443 exposed from container)
+#   - No /etc/localtime bind mount (Fly machines have UTC)
+#   - Services communicate via localhost; service names resolve via /etc/hosts injection
+#
+# Deploy: task deploy:fly  (requires: fly auth login, task secrets:fly)
+
+networks:
+  gjgit:
+    driver: bridge
+
+services:
+
+  # ── Reverse proxy (HTTP-only — Fly handles TLS) ───────────────────────────
+  caddy:
+    image: caddy:2-alpine
+    container_name: gjgit-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"        # Fly proxy forwards here; no 443 (Fly handles TLS)
+    volumes:
+      - ./Caddyfile.fly:/etc/caddy/Caddyfile:ro
+      - /mnt/caddy_data:/data         # Fly persistent volume
+    networks:
+      - gjgit
+    depends_on:
+      forgejo:
+        condition: service_healthy
+
+  # ── Git hosting ────────────────────────────────────────────────────────────
+  forgejo:
+    image: codeberg.org/forgejo/forgejo:14
+    container_name: gjgit-forgejo
+    restart: unless-stopped
+    environment:
+      - USER_UID=${USER_UID:-1000}
+      - USER_GID=${USER_GID:-1000}
+      # Tell Forgejo its public URL so generated clone URLs are correct
+      - FORGEJO__server__ROOT_URL=https://${FLY_APP_NAME}.fly.dev/
+      - FORGEJO__server__SSH_DOMAIN=${FLY_APP_NAME}.fly.dev
+    volumes:
+      - /mnt/forgejo_data:/data       # Fly persistent volume
+    networks:
+      - gjgit
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:3000/api/v1/version"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  # ── First-run bootstrap (one-shot) ────────────────────────────────────────
+  bootstrap:
+    image: codeberg.org/forgejo/forgejo:14
+    container_name: gjgit-bootstrap
+    restart: "no"
+    environment:
+      - GITEA_URL=${GITEA_URL:-http://forgejo:3000}
+      - GITEA_ADMIN_USERNAME=${GITEA_ADMIN_USERNAME}
+      - GITEA_ADMIN_PASSWORD=${GITEA_ADMIN_PASSWORD}
+      - GITEA_ADMIN_EMAIL=${GITEA_ADMIN_EMAIL}
+    volumes:
+      - ./scripts:/scripts:ro
+      - /mnt/shared_token:/shared     # Fly persistent volume
+    networks:
+      - gjgit
+    entrypoint: ["/bin/sh", "/scripts/bootstrap.sh"]
+    depends_on:
+      forgejo:
+        condition: service_healthy

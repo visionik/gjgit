@@ -9,7 +9,17 @@ Commits follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.
 ## [Unreleased]
 
 ### Added
-- Project scaffold: directory layout, Taskfile.yml, .gitignore, CHANGELOG.md, .env.example (all vars documented), secrets/ templates
+- fly.io deployment support (native multi-container Fly Machines via `[build] compose`)
+  - `fly.toml` (standalone) + `fly-proxy.toml` (proxy/mirror mode), HKG region, persistent volumes
+  - `docker-compose.fly.yml` + `docker-compose.fly-proxy.yml` — fly-adapted compose files (no env_file, /mnt/ volume paths, HTTP-only Caddy)
+  - `Caddyfile.fly` — HTTP-only Caddyfile (fly.io handles TLS at edge)
+  - `scripts/fly-bootstrap.sh` — idempotent one-time app + volume + IP setup
+  - `scripts/fly-secrets.sh` — imports .env as fly secrets
+  - `scripts/fly-smoke.sh` — E2E verification: Forgejo health, bootstrap token, admin user
+  - Taskfile fly tasks: `fly:bootstrap`, `secrets:fly`, `deploy:fly`, `deploy:fly:proxy`, `fly:ssh`, `fly:logs`, `fly:status`, `fly:smoke`
+  - `docs/fly-io.md` — full deployment guide (setup, deploy, custom domain, SSH, cost, troubleshooting)
+- `flyctl` v0.4.40 added as dev dependency (install: `brew install flyctl`)
+- Project scaffold: Taskfile.yml, .gitignore, CHANGELOG.md, .env.example, secrets/ templates
 - `docker-compose.yml`: standalone (Forgejo + Caddy) and proxy (+ gitea-mirror + ghproxy) profiles
 - `Caddyfile`: automatic HTTPS + HTTP/3 via Let's Encrypt; inline proxy mode routing block
 - `scripts/bootstrap.sh`: idempotent first-run admin user creation and API token generation from env vars
