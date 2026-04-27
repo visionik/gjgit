@@ -19,15 +19,19 @@ primary_region = "nrt"   # Tokyo, Japan — closest fly.io region to mainland Ch
 kill_signal    = "SIGTERM"
 
 [build]
-  # flyctl v0.4.x+ parses this compose file (BuildCompose struct requires [build.compose]).
-  # See docker-compose.fly.yml for Fly-specific adaptations.
-  [build.compose]
-    file = "docker-compose.fly.yml"
+  # fly.io handles TLS/HTTPS at the edge and routes directly to Forgejo on port 3000.
+  # No Caddy needed in standalone mode — fly proxy acts as the reverse proxy.
+  image = "codeberg.org/forgejo/forgejo:14"
+
+[env]
+  USER_UID = "1000"
+  USER_GID = "1000"
+  FORGEJO__security__INSTALL_LOCK = "true"
+  # FORGEJO__server__ROOT_URL and SSH_DOMAIN come from fly secrets (task secrets:fly)
 
 [http_service]
-  # Fly proxy accepts HTTPS at the edge and forwards HTTP to Caddy on port 80.
-  # Caddy handles path-based routing to Forgejo internally.
-  internal_port       = 80
+  # Fly proxy routes to Forgejo directly on port 3000.
+  internal_port       = 3000
   force_https         = true
   auto_stop_machines  = false   # Keep always-on — git hosting must not cold-start
   auto_start_machines = true
@@ -41,10 +45,7 @@ kill_signal    = "SIGTERM"
 # Single volume covers Forgejo data AND the bootstrap token (as a subdirectory).
 [[mounts]]
   source      = "forgejo_data"
-  destination = "/mnt/data"
-  # Layout inside the volume:
-  #   /mnt/data/           → Forgejo data root (USER_UID writes here)
-  #   /mnt/data/token/     → Bootstrap token (forgejo-token file)
+  destination = "/data"   # Forgejo's data root
 
 # Fly Proxy configuration for SSH passthrough (Forgejo SSH on port 2222)
 # Uncomment to enable SSH access:
