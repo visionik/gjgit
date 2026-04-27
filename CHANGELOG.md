@@ -9,6 +9,20 @@ Commits follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.
 ## [Unreleased]
 
 ### Added
+- Smart-Git git clone caching for proxy mode (`wjqserver/smart-git:latest`, Go version)
+  - `configs/smart-git/config.toml`: 5m TTL + upstream hash check; `expireEx=15m` for stable repos
+  - `docker-compose.yml`: `smart-git` service under proxy profile; `smart_git_cache` named volume
+  - `ghproxy` switches from `mode=bypass` to `mode=cache` with `smartGitAddr=http://smart-git:8080`
+  - `tests/integration/proxy.sh`: smart-git health check + cache population assertion + HEAD SHA correctness check
+
+### Notes
+- Smart-Git cache invalidation: TTL-based (5m) with upstream hash check on expiry. New commits visible within 5m.
+  Force-pushed branches may serve stale objects within the 5m window. Public repos only (no auth forwarding).
+- No disk eviction/LRU policy: monitor `smart_git_cache` volume usage; named volume size is the only limit.
+- **Migration**: existing proxy deployments must `docker compose --profile proxy pull && docker compose --profile proxy up -d`
+  to start the new `smart-git` container. ghproxy will fail to start until smart-git is healthy.
+
+### Added
 - fly.io deployment support (native multi-container Fly Machines via `[build] compose`)
   - `fly.toml` (standalone) + `fly-proxy.toml` (proxy/mirror mode), HKG region, persistent volumes
   - `docker-compose.fly.yml` + `docker-compose.fly-proxy.yml` — fly-adapted compose files (no env_file, /mnt/ volume paths, HTTP-only Caddy)

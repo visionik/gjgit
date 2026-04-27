@@ -8,6 +8,7 @@ volumes:
   forgejo_data:
   shared_token:    # Written by bootstrap, read by gitea-mirror
   ghproxy_cache:
+  smart_git_cache:   # Git bare repo cache for Smart-Git (proxy profile)
 
 services:
 
@@ -96,7 +97,28 @@ services:
       bootstrap:
         condition: service_completed_successfully
 
-  # ── GitHub proxy + cache (proxy profile only) ─────────────────────────────
+  # ── Git clone cache sidecar (proxy profile only) ──────────────────────────
+  # Caches bare git repos locally. ghproxy calls it for git clone/fetch/push.
+  # Invalidation: TTL=5m + upstream hash check (see configs/smart-git/config.toml).
+  # Limitation: public repos only; no disk eviction (monitor smart_git_cache usage).
+  smart-git:
+    image: wjqserver/smart-git:latest
+    container_name: gjgit-smart-git
+    restart: unless-stopped
+    profiles: ["proxy"]
+    volumes:
+      - ./configs/smart-git:/data/smart-git/config:ro
+      - smart_git_cache:/data/smart-git
+    networks:
+      - gjgit
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+
+  # ── GitHub proxy + cache (proxy profile only) ─────────────────────────────────
   ghproxy:
     image: wjqserver/ghproxy:latest
     container_name: gjgit-ghproxy
@@ -107,6 +129,9 @@ services:
       - ghproxy_cache:/data/ghproxy/log
     networks:
       - gjgit
+    depends_on:
+      smart-git:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:8080/"]
       interval: 15s

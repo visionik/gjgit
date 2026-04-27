@@ -1,0 +1,38 @@
+# gjgit — Smart-Git configuration (wjqserver/smart-git, Go version)
+# Provides git clone caching for the proxy profile.
+#
+# Cache invalidation model (verified during smartgit-1 research):
+#   TTL-based with upstream hash check on expiry. When a cached repo expires,
+#   Smart-Git fetches the upstream ref advertisement; if the hash is unchanged
+#   it extends by expireEx without re-cloning. If changed, it re-fetches.
+#
+# Implications:
+#   - New commits are visible within `expire` (5m here, not the 1h default)
+#   - Force-pushed branches may serve stale objects within the 5m window
+#   - Auth tokens are NOT forwarded — only public repos are safely cached
+#   - No disk eviction/LRU policy: monitor volume usage manually;
+#     volume size acts as the only limit (smart_git_cache volume, sized in docker-compose.yml)
+#
+# Full config reference: https://github.com/WJQSERVER-STUDIO/smart-git/blob/main/docs/config.md
+
+[server]
+host    = "0.0.0.0"
+port    = 8080
+baseDir = "/data/smart-git/repos"   # Git bare repo cache root
+memLimit = 0                        # 0 = no Go runtime memory limit
+
+[log]
+logfilepath = "/data/smart-git/log/smart-git.log"
+maxlogsize  = 5    # MB per log file before rotation
+level       = "info"
+
+[database]
+path = "/data/smart-git/db/smart-git.db"   # BoltDB metadata (single file KV)
+
+[cache]
+# expire: how long a cached repo is considered fresh before checking upstream.
+# Set to 5m (not the 1h default) to keep staleness window small.
+expire   = "5m"
+# expireEx: if upstream hash is unchanged when expire is reached, extend cache
+# by this amount without re-cloning. Reduces upstream load for stable repos.
+expireEx = "15m"

@@ -23,9 +23,12 @@ maxIdleConnsPerHost = 100
 maxConnsPerHost     = 0
 
 [gitclone]
-# bypass: proxy git operations directly to GitHub (no local cache).
-# Use "cache" + Smart-Git sidecar for full git clone caching (optional, not included in gjgit v1).
-mode         = "bypass"
+# cache: git clone/fetch/push requests are handled by Smart-Git sidecar.
+# Smart-Git stores bare repos locally; subsequent clones are served from disk.
+# TTL=5m (see configs/smart-git/config.toml) — public repos only.
+# Fallback: if Smart-Git is unavailable, ghproxy returns an error (not a silent bypass).
+mode         = "cache"
+smartGitAddr = "http://smart-git:8080"
 ForceH2C     = true
 
 [shell]

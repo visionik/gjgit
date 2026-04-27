@@ -1,0 +1,11 @@
+{
+  "vBRIEFInfo": { "version": "0.6", "author": "agent:deft-directive-build", "created": "2026-04-27T03:07:00Z" },
+  "plan": {
+    "title": "smart-git-caching",
+    "status": "running",
+    "narratives": {
+      "Overview": "Add Smart-Git sidecar for git clone caching. Go version, expire=5m, public repos only. Confirmed by user 2026-04-27T03:07:00Z."
+    },
+    "items": []
+  }
+}

@@ -43,13 +43,38 @@ maxIdleConns        = 500
 maxIdleConnsPerHost = 200
 ```
 
-### Git clone caching (advanced)
+### Git clone caching (Smart-Git)
 
-wjqserver/ghproxy supports git clone caching via the
-[Smart-Git](https://github.com/WJQSERVER-STUDIO/smart-git) sidecar.
-Enable it by setting `[gitclone] mode = "cache"` and adding Smart-Git as
-an additional service. This is not included in gjgit v1 but is documented
-in the ghproxy project for v2 consideration.
+gjgit ships with Smart-Git enabled in proxy mode. The `smart-git` service
+caches git bare repos locally so repeat `git clone`/`git fetch` operations
+are served from disk rather than round-tripping to GitHub.
+
+**Cache behaviour:**
+- Git objects (blobs, trees, commits) are immutable — cached safely forever
+- TTL: 5m before checking upstream ref advertisement
+- If upstream ref is unchanged: extends cache by `expireEx` (15m) without re-fetching
+- If upstream ref changed: re-fetches only the new objects
+- Force-pushed branches: stale objects may be served within the 5m TTL window
+- **Public repos only**: auth tokens are not forwarded to Smart-Git
+
+**Disk usage warning:** Smart-Git has no LRU eviction policy. Monitor
+`smart_git_cache` volume size — once disk is full, new repos cannot be cached.
+Manually prune stale repos by removing entries from `/data/smart-git/repos/`
+inside the `smart-git` container.
+
+Tune the TTL in `configs/smart-git/config.toml`:
+
+```toml
+[cache]
+expire   = "5m"    # Lower = fresher, higher = fewer upstream checks
+expireEx = "15m"   # Extension when upstream hash is unchanged
+```
+
+View cached repos:
+
+```bash
+docker exec gjgit-smart-git curl -s http://localhost:8080/api/db/data
+```
 
 ## Forgejo tuning
 
