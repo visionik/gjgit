@@ -87,12 +87,12 @@ curl -s -o /dev/null \
     -u "${ADMIN_USER}:${ADMIN_PASS}" \
     "${FORGEJO_URL}/api/v1/users/${ADMIN_USER}/tokens/${TOKEN_NAME}" 2>/dev/null || true
 
-# Create the token
+# Create the token. Forgejo 14+ requires explicit scopes — without scopes the API returns 400.
 TOKEN_RESPONSE=$(curl -sf \
     -X POST \
     -H "Content-Type: application/json" \
     -u "${ADMIN_USER}:${ADMIN_PASS}" \
-    -d "{\"name\":\"${TOKEN_NAME}\"}" \
+    -d "{\"name\":\"${TOKEN_NAME}\",\"scopes\":[\"all\"]}" \
     "${FORGEJO_URL}/api/v1/users/${ADMIN_USER}/tokens" 2>/dev/null) || {
     echo "[bootstrap] ERROR: Failed to create API token. Check Forgejo logs." >&2
     exit 1
