@@ -209,15 +209,18 @@ tasks:
         done
 
         echo "=== Waiting for bootstrap to complete ==="
+        # Use python3 to parse JSON — avoids Taskfile template engine eating {{.State.Status}}
         for i in $(seq 1 12); do
-          STATUS=$(docker inspect gjgit-bootstrap \
-            --format '{{.State.Status}}' 2>/dev/null || echo "missing")
+          STATUS=$(docker inspect gjgit-bootstrap 2>/dev/null | \
+            python3 -c "import sys,json; d=json.load(sys.stdin); print(d[0]['State']['Status'])" \
+            2>/dev/null || echo "missing")
           [ "$STATUS" = "exited" ] && echo "  bootstrap exited." && break
           echo "  bootstrap status: $STATUS (attempt $i/12)..."; sleep 5
           [ $i -eq 12 ] && echo "FAIL: bootstrap did not complete" && exit 1
         done
-        EXIT_CODE=$(docker inspect gjgit-bootstrap \
-          --format '{{.State.ExitCode}}' 2>/dev/null || echo 1)
+        EXIT_CODE=$(docker inspect gjgit-bootstrap 2>/dev/null | \
+          python3 -c "import sys,json; d=json.load(sys.stdin); print(d[0]['State']['ExitCode'])" \
+          2>/dev/null || echo 1)
         [ "$EXIT_CODE" != "0" ] && docker logs gjgit-bootstrap && \
           echo "FAIL: bootstrap exited $EXIT_CODE" && exit 1
         echo "  bootstrap exit code: 0 (admin created + token written)"
