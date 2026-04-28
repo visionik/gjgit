@@ -62,7 +62,23 @@ fi
 # If project files aren't here (e.g. curl | sh from a home dir), clone the repo
 if [ ! -f "${PROJECT_DIR}/Taskfile.yml" ] || [ ! -f "${PROJECT_DIR}/docker-compose.yml" ]; then
     if ! command -v git >/dev/null 2>&1; then
-        die "git is required to install gjgit.\n  Install git and re-run: curl -fsSL https://raw.githubusercontent.com/visionik/gjgit/main/install.sh | sh"
+        echo ""
+        red "  ✗ git is not installed."
+        echo ""
+        if [ "$PLATFORM" = "macOS" ]; then
+            yellow "  Install git:"
+            dim   "    xcode-select --install"
+            dim   "    # or: brew install git"
+        else
+            yellow "  Install git:"
+            dim   "    sudo apt-get install -y git   # Debian/Ubuntu"
+            dim   "    sudo yum install -y git        # RHEL/CentOS"
+            dim   "    sudo apk add git               # Alpine"
+        fi
+        echo ""
+        dim "  Then re-run: curl -fsSL https://raw.githubusercontent.com/visionik/gjgit/main/install.sh | sh"
+        echo ""
+        exit 1
     fi
 
     CLONE_DIR="${PROJECT_DIR}/gjgit"
