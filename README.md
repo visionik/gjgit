@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 **Turnkey GitHub mirror + Forgejo self-hosting stack.**  
-Deploy a fully functional, HTTPS-enabled git hosting instance in under 5 minutes — or mirror any GitHub repo with caching and acceleration for China-first latency.
+Great for self-hosting git repos, deploying on VPS providers, or creating repo mirrors for performance — or for regions where sites like github.com are inaccessible.
 
 ## Modes
 
