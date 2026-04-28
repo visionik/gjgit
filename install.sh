@@ -56,13 +56,26 @@ fi
 if [ -n "$SCRIPT_PATH" ]; then
     PROJECT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 else
-    # curl | sh: assume current directory
     PROJECT_DIR="$(pwd)"
 fi
 
-# Verify this looks like a gjgit project
+# If project files aren't here (e.g. curl | sh from a home dir), clone the repo
 if [ ! -f "${PROJECT_DIR}/Taskfile.yml" ] || [ ! -f "${PROJECT_DIR}/docker-compose.yml" ]; then
-    die "Could not find gjgit project files in ${PROJECT_DIR}.\n  Clone the repo first: git clone https://github.com/visionik/gjgit && cd gjgit && ./install.sh"
+    if ! command -v git >/dev/null 2>&1; then
+        die "git is required to install gjgit.\n  Install git and re-run: curl -fsSL https://raw.githubusercontent.com/visionik/gjgit/main/install.sh | sh"
+    fi
+
+    CLONE_DIR="${PROJECT_DIR}/gjgit"
+    # Don't re-clone if it already exists
+    if [ -d "$CLONE_DIR/.git" ]; then
+        warn "Found existing clone at ${CLONE_DIR} — updating..."
+        git -C "$CLONE_DIR" pull --ff-only 2>/dev/null || true
+    else
+        step "Cloning gjgit..."
+        git clone --depth 1 https://github.com/visionik/gjgit.git "$CLONE_DIR"
+        ok "Cloned to ${CLONE_DIR}"
+    fi
+    PROJECT_DIR="$CLONE_DIR"
 fi
 
 ok "Project root: $PROJECT_DIR"
