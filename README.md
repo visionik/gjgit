@@ -15,54 +15,43 @@ Deploy a fully functional, HTTPS-enabled git hosting instance in under 5 minutes
 
 ## Prerequisites
 
-- Docker 24+ and Docker Compose v2
-- A domain with an A record pointing to your VPS
-- Port 80 and 443 open on the VPS (for Let's Encrypt)
+- Docker 24+ with Docker Compose v2
+- A domain with an A record pointing to your server
+- Ports 80 and 443 open (for Let's Encrypt TLS)
 
-## Quickstart — 5 minutes
+## Quickstart
 
 ```bash
-# 1. Clone the repo
-git clone https://github.com/openclaw/gjgit.git && cd gjgit
-
-# 2. Configure
-cp .env.example .env
-# Edit .env: set DOMAIN, LETSENCRYPT_EMAIL, admin credentials
-# For proxy mode: also set GITHUB_REPO and GITHUB_TOKEN
-
-# 3. Start
-docker compose up -d                             # Standalone
-docker compose --profile proxy up -d            # Proxy / mirror mode
-
-# 4. Point your domain's A record to this VPS IP — done.
+curl -fsSL https://raw.githubusercontent.com/visionik/gjgit/main/install.sh | sh
 ```
+
+That's it. The installer checks prerequisites, installs the task runner if needed, then launches an interactive setup wizard that collects your config and deploys the stack — locally, over SSH to any Docker host, or to Fly.io.
+
+> **Already have the repo cloned?** Just run `./install.sh` or `task setup` from the project root.
+
+### What the wizard does
+
+1. Asks which mode: **standalone** (Forgejo + Caddy) or **proxy** (+ gitea-mirror + ghproxy)
+2. Prompts for all required config — passwords and secrets are auto-generated if left blank
+3. Shows a review screen with secrets masked; lets you edit any field before confirming
+4. Writes `.env` and asks where to deploy:
+   - **Locally** — `docker compose up -d` right there
+   - **SSH** — packages the stack and deploys to any remote Docker host
+   - **Fly.io** — uploads secrets and runs `fly deploy`
+   - **Bundle** — builds a portable `.tar.gz` for manual deployment
 
 Caddy provisions a Let's Encrypt TLS certificate automatically on first start.  
-The admin account is created from `.env` credentials — no manual web UI signup needed.
+All bootstrap steps (admin user creation, API token generation, mirror setup) run automatically.
 
-## First-run: admin user setup
-
-**Local docker compose** — handled automatically:
+## fly.io admin management
 
 ```bash
-task up              # starts Forgejo + Caddy
-task bootstrap       # creates admin + generates API token (proxy mode)
+task fly:admin:create EMAIL=you@example.com         # first-run: create admin with random password
+task fly:admin:create USERNAME=viz EMAIL=you@x.com  # custom username
+task fly:admin:reset  USERNAME=viz                  # reset password
 ```
 
-Admin credentials come from `.env` (`GITEA_ADMIN_USERNAME`, `GITEA_ADMIN_PASSWORD`).  
-> **Note**: `admin` is a reserved username in Forgejo. Use `gitadmin`, your name, etc.
-
-**fly.io** — one task after deploy:
-
-```bash
-task deploy:fly
-task fly:admin:create EMAIL=you@example.com         # creates 'gitadmin' with random password
-task fly:admin:create USERNAME=viz EMAIL=you@x.com  # or with a custom username
-task fly:admin:reset  USERNAME=viz                  # reset password later if needed
-```
-
-The random password is printed once — save it immediately. Change it at  
-https://gjgit.fly.dev/user/settings/security
+The random password is printed once — save it immediately.
 
 ## SSH access
 
